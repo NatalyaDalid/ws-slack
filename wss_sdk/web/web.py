@@ -1,6 +1,7 @@
 import json
 import requests
 import logging
+from secrets import compare_digest
 
 HEADERS = {'content-type': 'application/json'}
 
@@ -37,32 +38,33 @@ class WSS:
                            kv_dict: dict = None) -> list:
         if token_type is None:
             token_type = self.token_type
-        return self.call_api(f"get{token_type.capitalize()}AlertsByType", kv_dict)
+        return self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)
 
-    def create_body(self,
-                    api_call: str,
-                    kv_dict: dict = None) -> dict:
+    def __create_body__(self,
+                        api_call: str,
+                        kv_dict: dict = None) -> dict:
         ret_dict = {
             "requestType": api_call,
             "userKey": self.user_key,
             self.TOKEN_TYPES[self.token_type]: self.token
         }
-        if kv_dict is dict:
+        if isinstance(kv_dict, dict):
             for ent in kv_dict:
                 ret_dict[ent] = kv_dict[ent]
 
         return ret_dict
 
-    def call_api(self,
-                 request_type: str,
-                 kv_dict: dict = None) -> dict:
-        body = self.create_body(request_type, kv_dict)
-        adapter = requests.adapters.HTTPAdapter(max_retries=3)
+    def __call_api__(self,
+                     request_type: str,
+                     kv_dict: dict = None) -> dict:
+        body = self.__create_body__(request_type, kv_dict)
+        # adapter = requests.adapters.HTTPAdapter(max_retries=3)
         token = [s for s in body.keys() if 'Token' in s]
-        s = requests.Session()
-        s.mount(self.api_url, adapter)
+        # s = requests.Session()
+        # s.mount(self.api_url, adapter)
         try:
-            resp = s.post(self.api_url, data=json.dumps(body), headers=HEADERS, timeout=self.timeout)
+            # resp = s.post(self.api_url, data=json.dumps(body), headers=HEADERS, timeout=self.timeout)
+            resp = requests.post(self.api_url, data=json.dumps(body), headers=HEADERS, timeout=self.timeout)
         except Exception as e:
             logging.error(f"Received Error on {body[token[0]]} {e}")
             raise
@@ -83,7 +85,7 @@ class WSS:
         else:
             scope_type = self.get_scope_type_by_token(token)
             kv_dict = {self.TOKEN_TYPES[scope_type]: token}
-        resp = self.call_api(f"get{scope_type.capitalize()}Alerts", kv_dict)
+        resp = self.__call_api__(f"get{scope_type.capitalize()}Alerts", kv_dict)
         logging.debug(f"Returning token on {self.token_type} level")
 
         return resp['alerts']
@@ -104,13 +106,14 @@ class WSS:
                            token: str) -> dict:
         tokens = self.get_all_tokens()
         for tok in tokens:
-            if tok['token'] == token:
+            if compare_digest(tok['token'], token):
                 logging.debug(f"Found token: {token}")
                 return tok
         logging.debug(f"Token {token} was not found")
 
     def get_all_tokens(self) -> list:
-        if self.token_type is "organization":
+        all_tokens = list()
+        if self.token_type == "organization":
             projects = self.get_vitals("project")
             for project in projects:
                 project['type'] = "project"
@@ -123,15 +126,15 @@ class WSS:
 
     def get_vitals(self,
                    of_type: str) -> list:
-        return self.call_api(f"get{self.token_type.capitalize()}{of_type.capitalize()}Vitals")[f"{of_type}Vitals"]
+        return self.__call_api__(f"get{self.token_type.capitalize()}{of_type.capitalize()}Vitals")[f"{of_type}Vitals"]
 
     def get_organization_details(self) -> dict:
-        return self.call_api("getOrganizationDetails")
+        return self.__call_api__("getOrganizationDetails")
 
     def get_token_from_name(self,
                             project_name: str) -> str:
         logging.debug(f"Searching for project: {project_name} token")
-        all_products = WSS.get_all_products(self, self.api_url, self.user_key, self.org_token)
+        all_products = WSS.get_all_products(self, self.api_url, self.user_key, self.token)
         all_projects = []
         for product in all_products:
             project_response = WSS.get_all_projects(self, self.api_url, self.user_key, product.get('productToken'))
@@ -144,14 +147,12 @@ class WSS:
 
         logging.error(f"Project name: {project_name} was not found")
 
-    # def get_all_products(self):
+    def get_all_products(self) -> list:
+        return self.__call_api__("getAllProducts")['products']  # TODO: FINISH THIS
 
-    #     return json.loads(self, self.api_url, self.call_api(create_body("getAllProducts", self.user_key, self.org_token, "orgToken")))[
-    #         'products']
-    #
-    # def get_all_projects(self):
-    #     return self.call_api(self, self.api_url, create_body("getAllProjects", self.user_key, self.prod_token, "productToken"))
-    #
+    def get_all_projects(self) -> list:
+        return self.__call_api__("getAllProjects")['projects'] # TODO: FINISH THIS
+
     # def get_project_inventory_report(self):
     #     return self.call_api(self, self.api_url, create_body("getProjectInventoryReport", self.user_key, self.project_token, "projectToken"))
     #
