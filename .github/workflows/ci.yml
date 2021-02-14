@@ -33,4 +33,4 @@ jobs:
         run: |
           cd ws_sdk
           python setup.py bdist_wheel
-      - name: Upload package to GHP
+
