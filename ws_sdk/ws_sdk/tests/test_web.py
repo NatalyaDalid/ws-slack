@@ -6,7 +6,7 @@ from ws_sdk.web import WS
 
 
 class TestWS(unittest.TestCase):
-    c = WS(api_url="wss_api_url", user_key="user_key1", token="org_token1", token_type="organization")      # TODO NEED TO REMOVE
+    c = WS(api_url="ws_api_url", user_key="user_key1", token="org_token1", token_type="organization")      # TODO NEED TO REMOVE
 
     def test___create_body__(self):
         res = self.c.__create_body__("api_call")

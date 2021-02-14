@@ -201,12 +201,12 @@ class WS:
     #         'vulnerabilities']
     #
     # def get_product_vulnerabilities(self):
-    #     return json.loads(self, self.api_url, WSS.call_api(
+    #     return json.loads(self, self.api_url, WS.call_api(
     #         create_body("getProductVulnerabilityReport", self.user_key, self.product_token, "productToken")))[
     #         'vulnerabilities']
     #
     # def get_project_vulnerabilities(self):
-    #     return json.loads(self, self.api_url, WSS.call_api(
+    #     return json.loads(self, self.api_url, WS.call_api(
     #         create_body("getProjectVulnerabilityReport", self.user_key, self.project_token, "projectToken")))[
     #         'vulnerabilities']
     #
