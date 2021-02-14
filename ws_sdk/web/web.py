@@ -1,10 +1,9 @@
 import json
-import sys
-from datetime import date
+import logging
+from datetime import datetime
+from secrets import compare_digest
 
 import requests
-import logging
-from secrets import compare_digest
 
 HEADERS = {'content-type': 'application/json'}
 
@@ -85,8 +84,8 @@ class WS:
     def get_alerts(self,
                    token: str = None,
                    alert_type: str = None,
-                   from_date: date = None,
-                   to_date: date = None,
+                   from_date: datetime = None,
+                   to_date: datetime = None,
                    report: bool = False) -> list:
         kv_dict = {}
         if token is None:                                       # Running call on WS token
@@ -102,9 +101,9 @@ class WS:
             logging.error(f"Alert: {alert_type} does not exist")
             return
 
-        if from_date is not None:
+        if isinstance(from_date, datetime):
             kv_dict["fromDate"] = from_date
-        if to_date is not None:
+        if isinstance(to_date, datetime):
             kv_dict["toDate"] = to_date
 
         if report:
@@ -176,10 +175,22 @@ class WS:
         logging.error(f"Project name: {project_name} was not found")
 
     def get_all_products(self) -> list:
-        return self.__call_api__("getAllProducts")['products']  # TODO: FINISH THIS
+        return self.__call_api__("getAllProducts")['products'] if self.token_type == 'organization' \
+            else logging.error("get_all_products only allowed on organization")
 
-    def get_all_projects(self) -> list:
-        return self.__call_api__("getAllProjects")['projects']  # TODO: FINISH THIS
+    def get_all_projects(self,
+                         token=None) -> list:
+        ret = None
+        if self.token_type is 'project':
+            logging.error("get_all_projects only allowed on organizations or products")
+        elif self.token_type is 'product':
+            ret = self.__call_api__("getAllProjects")['projects']
+        elif token is not None:
+            ret = self.__call_api__("getAllProjects", kv_dict={self.TOKEN_TYPES['product']: token})['projects']
+        else:
+            ret = list(filter(lambda tok: (tok['type'] == 'project'), self.get_all_tokens()))
+
+        return ret
 
     # def get_project_inventory_report(self):
     #     return self.call_api(self, self.api_url, create_body("getProjectInventoryReport", self.user_key, self.project_token, "projectToken"))
