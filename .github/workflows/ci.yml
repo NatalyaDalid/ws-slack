@@ -27,5 +27,5 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test Package
         run: |
-          cd ws_sdk/tests
+          cd ws_sdk/ws_sdk/tests
           python -m unittest
