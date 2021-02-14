@@ -32,6 +32,5 @@ jobs:
       - name: Create Package
         run: |
           cd ws_sdk
-          python ws_sdk/setup.py bdist_wheel
-
-
+          python setup.py bdist_wheel
+      - name: Upload package to GHP
