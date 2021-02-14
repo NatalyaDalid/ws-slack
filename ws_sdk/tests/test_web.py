@@ -1,8 +1,8 @@
 import unittest
-from mock import patch
-from web import WSS
+from mock import patch, MagicMock, Mock
+from web import WS
 
-c = WSS(api_url="wss_api_url", user_key="user_key1", token="org_token1", token_type="organization")
+c = WS(api_url="wss_api_url", user_key="user_key1", token="org_token1", token_type="organization")
 
 
 class TestWeb(unittest.TestCase):
@@ -21,6 +21,18 @@ class TestWeb(unittest.TestCase):
             patched_post.return_value.text = '{"key": "val"}'
             res = c.__call_api__("api_call")
             self.assertIsInstance(res, dict)
+
+    @patch('web.WS.get_vitals')
+    def test_get_all_tokens(self, mock_get_vitals):
+        with patch('web.WS') as ws_class:
+            ws_class.return_value.token_type = "organization"
+            mock_get_vitals.return_value = list()
+            res = c.get_all_tokens()
+            self.assertIsInstance(res, list)
+
+    def test_get_alerts_by_type(self):
+        with patch('web.WS') as ws_class:
+            pass
 
 
 if __name__ == '__main__':

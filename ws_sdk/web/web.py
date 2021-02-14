@@ -1,4 +1,7 @@
 import json
+import sys
+from datetime import date
+
 import requests
 import logging
 from secrets import compare_digest
@@ -6,11 +9,12 @@ from secrets import compare_digest
 HEADERS = {'content-type': 'application/json'}
 
 
-class WSS:
+class WS:
     TOKEN_TYPES = {"organization": "orgToken",
                    "product": "productToken",
                    "project": "projectToken"
                    }
+    ALERT_TYPES = ['SECURITY_VULNERABILITY', 'NEW_MAJOR_VERSION', 'NEW_MINOR_VERSION', 'MULTIPLE_LIBRARY_VERSIONS', 'REJECTED_BY_POLICY_RESOURCE']
 
     def __init__(self,
                  api_url: str,
@@ -32,13 +36,6 @@ class WSS:
         self.token_type = token_type
         self.timeout = timeout
         self.resp_format = resp_format
-
-    def get_alerts_by_type(self,
-                           token_type: str = None,
-                           kv_dict: dict = None) -> list:
-        if token_type is None:
-            token_type = self.token_type
-        return self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)
 
     def __create_body__(self,
                         api_call: str,
@@ -76,19 +73,50 @@ class WSS:
         else:
             logging.debug("API %s call on %s succeeded" % (body['requestType'], body[token[0]]))
 
-        return json.loads(resp.text)
+        try:
+            ret = json.loads(resp.text)
+        except json.JSONDecodeError:
+            logging.debug("Not a JSON object")
+            ret = resp.content
 
-    def get_alerts(self, token=None) -> list:
-        if token is None:
-            scope_type = self.token_type
-            kv_dict = None
+        return ret
+
+    # Covers O/P/P + byType + report
+    def get_alerts(self,
+                   token: str = None,
+                   alert_type: str = None,
+                   from_date: date = None,
+                   to_date: date = None,
+                   report: bool = False) -> list:
+        kv_dict = {}
+        if token is None:                                       # Running call on WS token
+            token_type = self.token_type
+        else:                                                   # Running call on specified token
+            token_type = self.get_scope_type_by_token(token)
+            kv_dict[self.TOKEN_TYPES[token_type]] = token
+            logging.debug(f"Token: {token} is of {token_type}")
+
+        if alert_type in self.ALERT_TYPES:
+            kv_dict["alertType"] = alert_type
+        elif alert_type:
+            logging.error(f"Alert: {alert_type} does not exist")
+            return
+
+        if from_date is not None:
+            kv_dict["fromDate"] = from_date
+        if to_date is not None:
+            kv_dict["toDate"] = to_date
+
+        if report:
+            logging.debug(f"Running Alerts Report")
+            kv_dict["format"] = "xlsx"
+            return self.__call_api__(f"get{token_type.capitalize()}AlertsReport", kv_dict)
+        elif kv_dict.get('alertType') is not None:
+            logging.debug(f"Running Alerts By Type")
+            return self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)['alerts']
         else:
-            scope_type = self.get_scope_type_by_token(token)
-            kv_dict = {self.TOKEN_TYPES[scope_type]: token}
-        resp = self.__call_api__(f"get{scope_type.capitalize()}Alerts", kv_dict)
-        logging.debug(f"Returning token on {self.token_type} level")
-
-        return resp['alerts']
+            logging.debug(f"Running Alerts")
+            return self.__call_api__(f"get{token_type.capitalize()}Alerts", kv_dict)['alerts']
 
     def get_scope_type_by_token(self,
                                 token: str) -> str:
@@ -134,10 +162,10 @@ class WSS:
     def get_token_from_name(self,
                             project_name: str) -> str:
         logging.debug(f"Searching for project: {project_name} token")
-        all_products = WSS.get_all_products(self, self.api_url, self.user_key, self.token)
+        all_products = WS.get_all_products(self, self.api_url, self.user_key, self.token)
         all_projects = []
         for product in all_products:
-            project_response = WSS.get_all_projects(self, self.api_url, self.user_key, product.get('productToken'))
+            project_response = WS.get_all_projects(self, self.api_url, self.user_key, product.get('productToken'))
             all_projects += project_response.get('projects')
 
         for project in all_projects:
@@ -151,7 +179,7 @@ class WSS:
         return self.__call_api__("getAllProducts")['products']  # TODO: FINISH THIS
 
     def get_all_projects(self) -> list:
-        return self.__call_api__("getAllProjects")['projects'] # TODO: FINISH THIS
+        return self.__call_api__("getAllProjects")['projects']  # TODO: FINISH THIS
 
     # def get_project_inventory_report(self):
     #     return self.call_api(self, self.api_url, create_body("getProjectInventoryReport", self.user_key, self.project_token, "projectToken"))
