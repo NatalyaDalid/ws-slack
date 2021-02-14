@@ -36,5 +36,5 @@ jobs:
       - uses: actions/upload-artifact@v2
         name: Upload package to GHP
         with:
-          name: my-artifact
+          name: WS Python SDK
           path: ws_sdk/dist/
