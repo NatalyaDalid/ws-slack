@@ -107,14 +107,14 @@ class WS:
             kv_dict["toDate"] = to_date
 
         if report:
-            logging.debug(f"Running Alerts Report")
+            logging.debug("Running Alerts Report")
             kv_dict["format"] = "xlsx"
             return self.__call_api__(f"get{token_type.capitalize()}AlertsReport", kv_dict)
         elif kv_dict.get('alertType') is not None:
-            logging.debug(f"Running Alerts By Type")
+            logging.debug("Running Alerts By Type")
             return self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)['alerts']
         else:
-            logging.debug(f"Running Alerts")
+            logging.debug("Running Alerts")
             return self.__call_api__(f"get{token_type.capitalize()}Alerts", kv_dict)['alerts']
 
     def get_scope_type_by_token(self,
