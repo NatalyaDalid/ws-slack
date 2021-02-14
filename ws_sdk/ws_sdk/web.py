@@ -181,9 +181,9 @@ class WS:
     def get_all_projects(self,
                          token=None) -> list:
         ret = None
-        if self.token_type is 'project':
+        if self.token_type == 'project':
             logging.error("get_all_projects only allowed on organizations or products")
-        elif self.token_type is 'product':
+        elif self.token_type == 'product':
             ret = self.__call_api__("getAllProjects")['projects']
         elif token is not None:
             ret = self.__call_api__("getAllProjects", kv_dict={self.TOKEN_TYPES['product']: token})['projects']
