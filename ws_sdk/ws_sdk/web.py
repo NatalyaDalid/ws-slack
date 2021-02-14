@@ -305,4 +305,3 @@ class WS:
     #
     # def get_organization_project_vitals(self):
     #     return json.loads(self.call_api("getOrganizationProjectVitals"))["projectVitals"]
-
