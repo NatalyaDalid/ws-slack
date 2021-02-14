@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 mock
+          pip install flake8 mock wheel
           if [ -f ws_sdk/ws_sdk/requirements.txt ]; then pip install -r ws_sdk/ws_sdk/requirements.txt; fi
       - name: Lint with flake8
         run: |
@@ -29,3 +29,9 @@ jobs:
         run: |
           cd ws_sdk
           python -m unittest ws_sdk/tests/test_web.py
+      - name: Create Package
+        run: |
+          cd ws_sdk
+          python ws_sdk/setup.py bdist_wheel
+
+
