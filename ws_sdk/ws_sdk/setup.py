@@ -1,6 +1,6 @@
 import setuptools
 
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("../README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
@@ -14,6 +14,6 @@ setuptools.setup(
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
     python_requires='>=3.6',
-    long_description=open("README.md").read(),
+    long_description=open("../README.md").read(),
     install_requires=[],
 )

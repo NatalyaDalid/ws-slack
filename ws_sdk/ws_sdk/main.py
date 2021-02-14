@@ -2,7 +2,7 @@ import logging
 import sys
 
 import constants
-from web import WS
+from ws_sdk.web import WS
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 

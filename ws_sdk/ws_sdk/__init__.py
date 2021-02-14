@@ -10,7 +10,6 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-
 __all__ = (
-    "WSS"
+    "WS"
 )
