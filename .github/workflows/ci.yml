@@ -33,4 +33,8 @@ jobs:
         run: |
           cd ws_sdk
           python setup.py bdist_wheel
-
+      - uses: actions/upload-artifact@v2
+        name: Upload package to GHP
+        with:
+          name: my-artifact
+          path: ws_sdk/dist/
