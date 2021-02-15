@@ -161,10 +161,10 @@ class WS:
     def get_token_from_name(self,
                             project_name: str) -> str:
         logging.debug(f"Searching for project: {project_name} token")
-        all_products = WS.get_all_products(self, self.api_url, self.user_key, self.token)
+        all_products = WS.get_all_products()
         all_projects = []
         for product in all_products:
-            project_response = WS.get_all_projects(self, self.api_url, self.user_key, product.get('productToken'))
+            project_response = WS.get_all_projects()
             all_projects += project_response.get('projects')
 
         for project in all_projects:
