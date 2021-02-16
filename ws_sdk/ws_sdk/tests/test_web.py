@@ -29,7 +29,7 @@ class TestWS(TestCase):
         self.assertIsInstance(res, dict)
 
     @patch('ws_sdk.web.WS.get_vitals')
-    def test_get_all_tokens(self, mock_get_vitals):
+    def test_get_all_scopes(self, mock_get_vitals):
         with patch('ws_sdk.web.WS') as ws_class:
             ws_class.return_value.token_type = "organization"
             mock_get_vitals.return_value = list()
@@ -89,9 +89,9 @@ class TestWS(TestCase):
 
         self.assertIs(res, None)
 
-    @patch('ws_sdk.web.WS.get_all_tokens')
-    def test_get_all_projects(self, mock_get_all_tokens):
-        mock_get_all_tokens.return_value = list()
+    @patch('ws_sdk.web.WS.get_all_scopes')
+    def test_get_all_projects(self, mock_get_all_scopes):
+        mock_get_all_scopes.return_value = list()
         res = self.ws.get_all_projects()
 
         self.assertIsInstance(res, list)
