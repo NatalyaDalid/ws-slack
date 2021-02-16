@@ -19,7 +19,7 @@ class WS:
                  api_url: str,
                  user_key: str,
                  token: str,
-                 token_type: str,
+                 token_type: str = 'organization',
                  timeout: int = 30,
                  resp_format: str = "json"
                  ):
@@ -35,6 +35,10 @@ class WS:
         self.token_type = token_type
         self.timeout = timeout
         self.resp_format = resp_format
+
+        if token_type != 'organization':
+            logging.error("Currently only supporting organization")
+            return
 
     def __create_body__(self,
                         api_call: str,
@@ -86,14 +90,14 @@ class WS:
                    alert_type: str = None,
                    from_date: datetime = None,
                    to_date: datetime = None,
-                   report: bool = False) -> list:
+                   report: bool = False) -> [list, bytes]:
         kv_dict = {}
         if token is None:                                       # Running call on WS token
             token_type = self.token_type
         else:                                                   # Running call on specified token
             token_type = self.get_scope_type_by_token(token)
             kv_dict[self.TOKEN_TYPES[token_type]] = token
-            logging.debug(f"Token: {token} is of {token_type}")
+            logging.debug(f"Token: {token} is a {token_type}")
 
         if alert_type in self.ALERT_TYPES:
             kv_dict["alertType"] = alert_type
@@ -109,13 +113,40 @@ class WS:
         if report:
             logging.debug("Running Alerts Report")
             kv_dict["format"] = "xlsx"
+
             return self.__call_api__(f"get{token_type.capitalize()}AlertsReport", kv_dict)
         elif kv_dict.get('alertType') is not None:
             logging.debug("Running Alerts By Type")
+
             return self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)['alerts']
         else:
             logging.debug("Running Alerts")
+
             return self.__call_api__(f"get{token_type.capitalize()}Alerts", kv_dict)['alerts']
+
+    def get_inventory(self,
+                      token: str = None,
+                      include_in_house_data: bool = True,
+                      report: bool = False) -> [list, bytes]:
+        kv_dict = {}
+        if token is None:                                       # Running call on WS token
+            token_type = self.token_type
+        else:                                                   # Running call on specified token
+            token_type = self.get_scope_type_by_token(token)
+            kv_dict[self.TOKEN_TYPES[token_type]] = token
+            logging.debug(f"Token: {token} is of {token_type}")
+
+        if report:
+            logging.debug("Running Inventory Report")
+            kv_dict["format"] = "xlsx"
+
+            return self.__call_api__(f"get{token_type.capitalize()}InventoryReport", kv_dict)
+        elif token_type == 'project':
+            logging.debug(f"Running {token_type} Inventory")
+            kv_dict["includeInHouseData"] = include_in_house_data
+            return self.__call_api__(f"get{token_type.capitalize()}Inventory", kv_dict)['libraries']
+        else:
+            logging.error(f"get inventory is unsupported on {token_type}")
 
     def get_scope_type_by_token(self,
                                 token: str) -> str:
@@ -131,14 +162,14 @@ class WS:
 
     def get_scope_by_token(self,
                            token: str) -> dict:
-        tokens = self.get_all_tokens()
+        tokens = self.get_all_scopes()
         for tok in tokens:
             if compare_digest(tok['token'], token):
                 logging.debug(f"Found token: {token}")
                 return tok
         logging.debug(f"Token {token} was not found")
 
-    def get_all_tokens(self) -> list:
+    def get_all_scopes(self) -> list:
         all_tokens = list()
         if self.token_type == "organization":
             projects = self.get_vitals("project")
@@ -156,7 +187,11 @@ class WS:
         return self.__call_api__(f"get{self.token_type.capitalize()}{of_type.capitalize()}Vitals")[f"{of_type}Vitals"]
 
     def get_organization_details(self) -> dict:
-        return self.__call_api__("getOrganizationDetails")
+        return self.__call_api__("getOrganizationDetails") if (self.token_type == 'organization') \
+            else logging.error("get organization details only allowed on organization")
+
+    def get_organization_name(self) -> str:
+        return self.get_organization_details()['orgName']
 
     def get_token_from_name(self,
                             project_name: str) -> str:
@@ -174,6 +209,16 @@ class WS:
 
         logging.error(f"Project name: {project_name} was not found")
 
+    def get_scope_by_name(self, scope_name):
+        scopes = self.get_all_scopes()
+        for scope in scopes:
+            if scope_name == scope['name']:
+                return scope
+        logging.error(f"{scope_name} was not found")
+
+    def get_scope_token_by_name(self, scope_name):
+        return self.get_scope_by_name(scope_name)['token']
+
     def get_all_products(self) -> list:
         return self.__call_api__("getAllProducts")['products'] if self.token_type == 'organization' \
             else logging.error("get_all_products only allowed on organization")
@@ -188,18 +233,10 @@ class WS:
         elif token is not None:
             ret = self.__call_api__("getAllProjects", kv_dict={self.TOKEN_TYPES['product']: token})['projects']
         else:
-            ret = list(filter(lambda tok: (tok['type'] == 'project'), self.get_all_tokens()))
+            ret = list(filter(lambda tok: (tok['type'] == 'project'), self.get_all_scopes()))
 
         return ret
 
-    # def get_project_inventory_report(self):
-    #     return self.call_api(self, self.api_url, create_body("getProjectInventoryReport", self.user_key, self.project_token, "projectToken"))
-    #
-    # def get_organization_vulnerabilities(self):
-    #     return json.loads(self, self.api_url,
-    #                       WSS.call_api(create_body("getOrganizationVulnerabilityReport", self.user_key, self.org_token, "orgToken")))[
-    #         'vulnerabilities']
-    #
     # def get_product_vulnerabilities(self):
     #     return json.loads(self, self.api_url, WS.call_api(
     #         create_body("getProductVulnerabilityReport", self.user_key, self.product_token, "productToken")))[
@@ -227,22 +264,6 @@ class WS:
     #         scope_name = self.get_product_name(self, self.api_url, self.user_key, self.org_token, scope_token)
     #
     #     return scope_name
-    #
-    # def get_scope_token_by_name(self, scope_name):
-    #     org_name = self.get_organization_name(self, self.api_url, self.user_key, self.org_token)
-    #     if org_name and self.org_token == org_name:
-    #         return org_name['orgName']
-    #
-    #     p_v = self.get_organization_product_vitals(self)
-    #     for p in p_v:
-    #         if scope_name == p['name']:
-    #             return p['token']
-    #
-    #     p_v = self.get_organization_project_vitals(self)
-    #     for p in p_v:
-    #         if scope_name == p['name']:
-    #             return p['token']
-    #     logging.debug(f"Entity {scope_name} was not found in organization")
     #
     # # Get vulnerabilities per library
     # def get_vulnerabilities_per_lib(self, report_scope):
