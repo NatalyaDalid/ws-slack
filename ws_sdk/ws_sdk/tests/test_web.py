@@ -184,7 +184,7 @@ class TestWS(TestCase):
         self.assertIsInstance(res, dict)
 
     @patch('ws_sdk.web.WS.get_organization_details')
-    def test_get_organization_details(self, mock_get_organization_details):
+    def test_get_organization_name(self, mock_get_organization_details):
         mock_get_organization_details.return_value = {'orgName': "ORG_NAME"}
         res = self.ws.get_organization_name()
 
