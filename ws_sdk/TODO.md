@@ -3,6 +3,7 @@
   * tokens
   * scopes
   * datetime
-    
+  
+* Add support for Global organizations
 * Add coverage, python version  and PyPI status to README.md
 * Add documentation, sample code

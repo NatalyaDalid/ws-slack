@@ -38,6 +38,13 @@ class TestWS(TestCase):
 
         self.assertIsInstance(res, dict)
 
+    @patch('ws_sdk.web.WS.__call_api__')
+    def test___generic_get__(self, mock_call_api):
+        mock_call_api.return_value = []
+        res = self.ws.__generic_get__(token_type=self.ws.token_type, get_type='suffix', kv_dict={})
+
+        self.assertIsInstance(res, list)
+
     @patch('ws_sdk.web.WS.get_vitals')
     def test_get_all_scopes(self, mock_get_vitals):
         with patch('ws_sdk.web.WS') as ws_class:
@@ -70,8 +77,8 @@ class TestWS(TestCase):
     def test_get_alerts_by_type(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = {'alerts': dict()}
         mock_set_token_in_body.return_value = self.ws.token_type
-        from_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        to_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        from_date = datetime.now()
+        to_date = datetime.now()
         res = self.ws.get_alerts(alert_type='SECURITY_VULNERABILITY', from_date=from_date, to_date=to_date)
 
         self.assertIsInstance(res, dict)
@@ -277,10 +284,17 @@ class TestWS(TestCase):
 
         self.assertIsInstance(res, list)
 
-    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_assignments(self, mock_call_api, mock_set_token_in_body):
-        mock_call_api.return_value = dict()
+    def test_get_change_log_report(self, mock_call_api):
+        mock_call_api.return_value = {'changes': list()}
+        res = self.ws.get_change_log_report()
+
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__generic_get__')
+    def test_get_assignments(self, mock_generic_get, mock_set_token_in_body):
+        mock_generic_get.return_value = dict()
         mock_set_token_in_body.return_value = self.ws.token_type
         res = self.ws.get_assignments()
 
@@ -293,12 +307,32 @@ class TestWS(TestCase):
 
         self.assertIs(res, None)
 
-    @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_change_log_report(self, mock_call_api):
-        mock_call_api.return_value = {'changes': list()}
-        res = self.ws.get_change_log_report()
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__generic_get__')
+    def test_get_licenses(self, mock_generic_get, mock_set_token_in_body):
+        mock_generic_get.return_value = {'libraries': list()}
+        mock_set_token_in_body.return_value = self.ws.token_type
+        res = self.ws.get_licenses()
 
         self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__generic_get__')
+    def test_get_in_house_libraries(self, mock_generic_get, mock_set_token_in_body):
+        mock_generic_get.return_value = {'libraries': list()}
+        mock_set_token_in_body.return_value = self.ws.token_type
+        res = self.ws.get_in_house_libraries()
+
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__generic_get__')
+    def test_get_licenses_histogram(self, mock_generic_get, mock_set_token_in_body):
+        mock_generic_get.return_value = {'licenseHistogram': dict()}
+        mock_set_token_in_body.return_value = self.ws.token_type
+        res = self.ws.get_license_histogram()
+
+        self.assertIsInstance(res, dict)
 
 
 if __name__ == '__main__':

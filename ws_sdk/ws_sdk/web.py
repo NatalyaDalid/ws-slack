@@ -1,10 +1,12 @@
 import json
 import logging
-from .constants import *
+import constants
 from datetime import datetime
 from secrets import compare_digest
 
 import requests
+
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 HEADERS = {'content-type': 'application/json'}
 
@@ -39,7 +41,6 @@ class WS:
 
         if token_type != 'organization':
             logging.error("Currently only supporting organization")
-
 
     def __set_token_in_body__(self, kv_dict,
                               token: str):
@@ -96,6 +97,13 @@ class WS:
 
         return ret
 
+    def __generic_get__(self,
+                        get_type: str,
+                        token_type: str,
+                        kv_dict: dict = None) -> [list, dict]:
+
+        return self.__call_api__(f"get{token_type.capitalize()}{get_type}", kv_dict)
+
     # Covers O/P/P + byType + report
     def get_alerts(self,
                    token: str = None,
@@ -116,9 +124,9 @@ class WS:
             return
 
         if isinstance(from_date, datetime):
-            kv_dict["fromDate"] = from_date
+            kv_dict["fromDate"] = from_date.strftime(DATE_FORMAT)
         if isinstance(to_date, datetime):
-            kv_dict["toDate"] = to_date
+            kv_dict["toDate"] = to_date.strftime(DATE_FORMAT)
 
         ret = None
         if report:
@@ -126,7 +134,7 @@ class WS:
             kv_dict["format"] = "xlsx"
             ret = self.__call_api__(f"get{token_type.capitalize()}AlertsReport", kv_dict)
         elif project_tag:
-            if token_type != ORGANIZATION:
+            if token_type != constants.ORGANIZATION:
                 logging.error("Getting project alerts tag is only supported with organization token")
             elif len(tag) == 1:
                 logging.debug("Running Alerts by project tag")
@@ -297,21 +305,43 @@ class WS:
 
         return list(libs_vul.values())
 
-    def get_assignments(self,
-                        token: str = None):
-        kv_dict = {}
-        token_type = self.__set_token_in_body__(kv_dict, token)
-        if token_type == PROJECT:
-            logging.error("get assignment is unsupported on project")
-        else:
-            return self.__call_api__(f"get{token_type.capitalize()}Assignments", kv_dict)
-
     def get_change_log_report(self,
                               start_date: datetime = None) -> list:
 
         if start_date is None:
             kv_dict = None
         else:
-            kv_dict = {'startDateTime': start_date}
+            kv_dict = {'startDateTime': start_date.strftime("%Y-%m-%d %H:%M:%S")}
 
         return self.__call_api__("getChangesReport", kv_dict)['changes']
+
+    def get_licenses(self,
+                     token: str = None,
+                     exclude_project_occurrences: bool = False) -> list:
+        kv_dict = {'excludeProjectOccurrences': exclude_project_occurrences}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+
+        return self.__generic_get__(get_type='Licenses', token_type=token_type, kv_dict=kv_dict)['libraries']
+
+    def get_in_house_libraries(self,
+                               token: str = None):
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+
+        return self.__generic_get__(get_type='InHouseLibraries', token_type=token_type, kv_dict=kv_dict)['libraries']
+
+    def get_assignments(self,
+                        token: str = None):
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if token_type == constants.PROJECT:
+            logging.error("get assignment is unsupported on project")
+        else:
+            return self.__generic_get__(get_type='Assignments', token_type=token_type, kv_dict=kv_dict)
+
+    def get_license_histogram(self,
+                              token: str = None):
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+
+        return self.__generic_get__(get_type='LicenseHistogram', token_type=token_type, kv_dict=kv_dict)['licenseHistogram']
