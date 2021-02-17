@@ -1,5 +1,6 @@
 import json
 import logging
+from .constants import *
 from datetime import datetime
 from secrets import compare_digest
 
@@ -38,7 +39,18 @@ class WS:
 
         if token_type != 'organization':
             logging.error("Currently only supporting organization")
-            return
+
+
+    def __set_token_in_body__(self, kv_dict,
+                              token: str):
+        if token is None:
+            token_type = self.token_type
+        else:
+            token_type = self.get_scope_type_by_token(token)
+            kv_dict[self.TOKEN_TYPES[token_type]] = token
+            logging.debug(f"Token: {token} is a {token_type}")
+
+        return token_type
 
     def __create_body__(self,
                         api_call: str,
@@ -72,7 +84,7 @@ class WS:
         if resp.status_code > 299:
             logging.error("API %s call on %s failed" % (body['requestType'], body[token[0]]))
         elif "errorCode" in resp.text:
-            logging.error(f"Error while retrieving API: {resp.text}")
+            logging.error(f"Error while retrieving API:{request_type} Error: {resp.text}")
         else:
             logging.debug("API %s call on %s succeeded" % (body['requestType'], body[token[0]]))
 
@@ -90,14 +102,12 @@ class WS:
                    alert_type: str = None,
                    from_date: datetime = None,
                    to_date: datetime = None,
+                   project_tag: bool = False,
+                   tag: dict = {},
+                   ignored: bool = False,
                    report: bool = False) -> [list, bytes]:
         kv_dict = {}
-        if token is None:                                       # Running call on WS token
-            token_type = self.token_type
-        else:                                                   # Running call on specified token
-            token_type = self.get_scope_type_by_token(token)
-            kv_dict[self.TOKEN_TYPES[token_type]] = token
-            logging.debug(f"Token: {token} is a {token_type}")
+        token_type = self.__set_token_in_body__(kv_dict, token)
 
         if alert_type in self.ALERT_TYPES:
             kv_dict["alertType"] = alert_type
@@ -110,31 +120,37 @@ class WS:
         if isinstance(to_date, datetime):
             kv_dict["toDate"] = to_date
 
+        ret = None
         if report:
             logging.debug("Running Alerts Report")
             kv_dict["format"] = "xlsx"
-
-            return self.__call_api__(f"get{token_type.capitalize()}AlertsReport", kv_dict)
+            ret = self.__call_api__(f"get{token_type.capitalize()}AlertsReport", kv_dict)
+        elif project_tag:
+            if token_type != ORGANIZATION:
+                logging.error("Getting project alerts tag is only supported with organization token")
+            elif len(tag) == 1:
+                logging.debug("Running Alerts by project tag")
+                ret = self.__call_api__("getAlertsByProjectTag", kv_dict)
+            else:
+                logging.error("Alerts tag is not set correctly")
+        elif ignored:
+            logging.debug("Running ignored Alerts")
+            ret = self.__call_api__(f"get{token_type.capitalize()}IgnoredAlerts", kv_dict)
         elif kv_dict.get('alertType') is not None:
             logging.debug("Running Alerts By Type")
-
-            return self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)['alerts']
+            ret = self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)
         else:
             logging.debug("Running Alerts")
+            ret = self.__call_api__(f"get{token_type.capitalize()}Alerts", kv_dict)
 
-            return self.__call_api__(f"get{token_type.capitalize()}Alerts", kv_dict)['alerts']
+        return ret.get('alerts') if isinstance(ret, dict) else ret
 
     def get_inventory(self,
                       token: str = None,
                       include_in_house_data: bool = True,
                       report: bool = False) -> [list, bytes]:
         kv_dict = {}
-        if token is None:                                       # Running call on WS token
-            token_type = self.token_type
-        else:                                                   # Running call on specified token
-            token_type = self.get_scope_type_by_token(token)
-            kv_dict[self.TOKEN_TYPES[token_type]] = token
-            logging.debug(f"Token: {token} is of {token_type}")
+        token_type = self.__set_token_in_body__(kv_dict, token)
 
         if report:
             logging.debug("Running Inventory Report")
@@ -193,31 +209,18 @@ class WS:
     def get_organization_name(self) -> str:
         return self.get_organization_details()['orgName']
 
-    def get_token_from_name(self,
-                            project_name: str) -> str:
-        logging.debug(f"Searching for project: {project_name} token")
-        all_products = WS.get_all_products()
-        all_projects = []
-        for product in all_products:
-            project_response = WS.get_all_projects()
-            all_projects += project_response.get('projects')
-
-        for project in all_projects:
-            if project['projectName'].lower() == project_name.lower():
-                logging.debug(f"Found token: {project['projectToken']}")
-                return project['projectToken']
-
-        logging.error(f"Project name: {project_name} was not found")
-
-    def get_scope_by_name(self, scope_name):
+    def get_scope_from_name(self, scope_name):
         scopes = self.get_all_scopes()
         for scope in scopes:
             if scope_name == scope['name']:
                 return scope
         logging.error(f"{scope_name} was not found")
 
-    def get_scope_token_by_name(self, scope_name):
-        return self.get_scope_by_name(scope_name)['token']
+    def get_token_from_name(self,
+                            name: str) -> str:
+        scope = self.get_scope_from_name(name)
+
+        return None if scope is None else scope['token']
 
     def get_all_products(self) -> list:
         return self.__call_api__("getAllProducts")['products'] if self.token_type == 'organization' \
@@ -237,92 +240,78 @@ class WS:
 
         return ret
 
-    # def get_product_vulnerabilities(self):
-    #     return json.loads(self, self.api_url, WS.call_api(
-    #         create_body("getProductVulnerabilityReport", self.user_key, self.product_token, "productToken")))[
-    #         'vulnerabilities']
-    #
-    # def get_project_vulnerabilities(self):
-    #     return json.loads(self, self.api_url, WS.call_api(
-    #         create_body("getProjectVulnerabilityReport", self.user_key, self.project_token, "projectToken")))[
-    #         'vulnerabilities']
-    #
-    # def get_highest_severity(self, curr_severity, severity):
-    #     sev_dict = {"high": 3,
-    #                 "medium": 2,
-    #                 "low": 1,
-    #                 "none": 0
-    #                 }
-    #     return curr_severity if sev_dict[curr_severity] > sev_dict[severity] else severity
-    #
-    # def get_scope_name(self, scope_token, report_scope):
-    #     if report_scope == "organization":
-    #         scope_name = self.get_organization_name(self, self.api_url, self.user_key, self.org_token)
-    #     elif report_scope == "product":
-    #         scope_name = self.get_product_name(self, self.api_url, self.user_key, self.org_token, scope_token)
-    #     elif report_scope == "project":
-    #         scope_name = self.get_product_name(self, self.api_url, self.user_key, self.org_token, scope_token)
-    #
-    #     return scope_name
-    #
-    # # Get vulnerabilities per library
-    # def get_vulnerabilities_per_lib(self, report_scope):
-    #     report_scopes = {
-    #         "organization": self.get_organization_vulnerabilities,
-    #         "product": self.get_product_vulnerabilities,
-    #         "project": self.get_project_vulnerabilities
-    #     }
-    #     report_method = report_scopes.get(report_scope)
-    #     vuls = report_method(self, self.api_url, self.user_key, self.token)
-    #
-    #     libs_vul = {}
-    #     for vul in vuls:
-    #         lib = vul['library']
-    #         key_uuid = lib['keyUuid']
-    #         if not libs_vul.get(key_uuid):
-    #             lib_dict = {}
-    #             for key in lib.keys():
-    #                 lib_dict[key] = lib[key]
-    #             lib_dict['vulnerabilities'] = set()
-    #             lib_dict['severity'] = "none"
-    #             libs_vul[key_uuid] = lib_dict
-    #         libs_vul[key_uuid]['vulnerabilities'].add(vul['name'])
-    #         curr_severity = vul['severity']
-    #         libs_vul[key_uuid]['severity'] = self.get_highest_severity(curr_severity, libs_vul[key_uuid]['severity'])
-    #
-    #     return libs_vul
-    #
-    # # Provides flatten list of all projects (name, token, dates) under product
-    # def get_product_project_vitals(self):
-    #     return json.loads(
-    #         self.call_api(self, self.api_url, create_body("getProductProjectVitals", self.user_key, self.product_token, "productToken")))[
-    #         "projectVitals"]
-    #
-    # def get_organization_name(self):
-    #     return self.get_organization_details(self, self.api_url, self.user_key, self.org_token).get('orgName')
-    #
-    # def get_product_name(self, token):
-    #     products = self.get_organization_product_vitals(self, self.api_url, self.user_key, self.org_token)
-    #     for product in products:
-    #         if product['token'] == token: return product['name']
-    #
-    # def get_project_name(self, token):
-    #     projects = self.get_organization_project_vitals(self, self.api_url, self.user_key, self.org_token)
-    #     for project in projects:
-    #         if project['token'] == token: return project['name']
-    #
-    # def get_product_vitals(self):  # TODO DELETE?
-    #     return json.loads(self, self.api_url, self.call_api(create_body("getProductVitals", self.user_key, self.product_token, "productToken")))[
-    #         "productVitals"]
-    #
-    # def get_project_vitals(self):
-    #     return json.loads(self, self.api_url, self.call_api(create_body("getProjectVitals", self.user_key, self.project_token, "projectToken")))[
-    #         "projectVitals"]
-    #
+    def get_vulnerability_report(self,
+                                 status: str = None,        # "Active", "Ignored", "Resolved"
+                                 container: bool = False,
+                                 cluster: bool = False,
+                                 report: bool = False,
+                                 token: str = None) -> [list, bytes]:
+        kv_dict = {}
+        if not report:
+            kv_dict["format"] = "json"
 
-    # Deprecated
-    # def get_organization_product_vitals(self):
-    #     return json.loads(self.call_api("getOrganizationProductVitals"))["productVitals"]
-    #
-    # def get_organization_project_vitals(self):
-    #     return json.loads(self.call_api("getOrganizationProjectVitals"))["projectVitals"]
+        token_type = self.__set_token_in_body__(kv_dict, token)
+
+        if status is not None:
+            kv_dict['status'] = status
+
+        # ret = None
+        if container:       # TODO: Check if this is a bug. Does not work my org neither with orgToken nor productToken
+            ret = self.__call_api__(f"get{token_type.capitalize()}ContainerVulnerabilityReport", kv_dict)
+            # if token_type == 'product':
+            #     ret = self.__call_api__(f"get{token_type.capitalize()}ContainerVulnerabilityReport", kv_dict)
+            # else:
+            #     logging.error(f"get organization container vulnerability report is unsupported on {token_type}")
+        elif cluster:       # TODO: Check if this is a bug. Does not work my org neither with orgToken nor productToken
+            ret = self.__call_api__(f"getClusterVulnerabilityReport", kv_dict)
+        else:
+            ret = self.__call_api__(f"get{token_type.capitalize()}VulnerabilityReport", kv_dict)
+
+        return ret['vulnerabilities'] if isinstance(ret, dict) else ret
+
+    def get_vulnerabilities_per_lib(self,
+                                    token: str = None) -> list:
+        # Internal method
+        def get_highest_severity(comp_severity, severity):
+            sev_dict = {"high": 3, "medium": 2, "low": 1, "none": 0}
+
+            return comp_severity if sev_dict[comp_severity] > sev_dict[severity] else severity
+
+        vuls = self.get_vulnerability_report(token=token)
+        logging.debug(f"Found {len(vuls)} Vulnerabilities")
+        libs_vul = {}
+        for vul in vuls:
+            lib = vul['library']
+            key_uuid = lib['keyUuid']
+            if not libs_vul.get(key_uuid):
+                lib_dict = {}
+                for key in lib.keys():
+                    lib_dict[key] = lib[key]
+                lib_dict['vulnerabilities'] = set()
+                lib_dict['severity'] = "none"
+                libs_vul[key_uuid] = lib_dict
+            libs_vul[key_uuid]['vulnerabilities'].add(vul['name'])
+            curr_severity = vul['severity']
+            libs_vul[key_uuid]['severity'] = get_highest_severity(curr_severity, libs_vul[key_uuid]['severity'])
+        logging.debug(f"Found {len(libs_vul)} libraries with vulnerabilities")
+
+        return list(libs_vul.values())
+
+    def get_assignments(self,
+                        token: str = None):
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if token_type == PROJECT:
+            logging.error("get assignment is unsupported on project")
+        else:
+            return self.__call_api__(f"get{token_type.capitalize()}Assignments", kv_dict)
+
+    def get_change_log_report(self,
+                              start_date: datetime = None) -> list:
+
+        if start_date is None:
+            kv_dict = None
+        else:
+            kv_dict = {'startDateTime': start_date}
+
+        return self.__call_api__("getChangesReport", kv_dict)['changes']

@@ -2,13 +2,23 @@ import unittest
 from datetime import datetime
 from unittest import TestCase
 
-from mock import patch, PropertyMock
+from mock import patch
+
+from ws_sdk.constants import *
 from ws_sdk.web import WS
 
 
 class TestWS(TestCase):
     def setUp(self):
-        self.ws = WS(api_url="ws_api_url", user_key="user_key1", token="org_token1", token_type="organization")
+        self.ws = WS(api_url="WS_API_URL", user_key="USER_KEY", token="ORG_TOKEN", token_type=ORGANIZATION)
+
+    @patch('ws_sdk.web.WS.get_scope_type_by_token')
+    def test___set_token_in_body__(self, mock_get_scope_type_by_token):
+        mock_get_scope_type_by_token.return_value = PRODUCT
+        kv_dict = {}
+        res = self.ws.__set_token_in_body__(kv_dict=kv_dict, token="TOKEN")
+
+        self.assertIsInstance(res, str) and self.assertIn({'productToken': 'TOKEN'}, kv_dict)
 
     def test___create_body__(self):
         res = self.ws.__create_body__("api_call")
@@ -21,9 +31,9 @@ class TestWS(TestCase):
         self.assertIsInstance(res, dict)
 
     @patch('ws_sdk.web.requests.post')
-    def test___call_api__(self, patched_post):
-        patched_post.return_value.status_code = 200
-        patched_post.return_value.text = '{"key": "val"}'
+    def test___call_api__(self, mock_post):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = '{"key": "val"}'
         res = self.ws.__call_api__("api_call")
 
         self.assertIsInstance(res, dict)
@@ -31,48 +41,88 @@ class TestWS(TestCase):
     @patch('ws_sdk.web.WS.get_vitals')
     def test_get_all_scopes(self, mock_get_vitals):
         with patch('ws_sdk.web.WS') as ws_class:
-            ws_class.return_value.token_type = "organization"
+            ws_class.return_value.token_type = ORGANIZATION
             mock_get_vitals.return_value = list()
             res = self.ws.get_all_scopes()
 
             self.assertIsInstance(res, list)
 
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_alerts_report(self, mock_call_api):
-        mock_call_api.return_value = dict()
+    def test_get_alerts_report(self, mock_call_api, mock_set_token_in_body):
+        mock_call_api.return_value = bytes()
+        mock_set_token_in_body.return_value = self.ws.token_type
         res = self.ws.get_alerts(report=True)
 
-        self.assertIsInstance(res, dict)
+        self.assertIsInstance(res, bytes)
 
-    @patch('ws_sdk.web.WS.get_scope_type_by_token')
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_alerts_report_on_product(self, mock_call_api, mock_get_scope_type_by_token):
-        mock_call_api.return_value = dict()
-        mock_get_scope_type_by_token.return_value = 'product'
+    def test_get_alerts_report_on_product(self, mock_call_api, mock_set_token_in_body):
+        mock_call_api.return_value = bytes()
+        mock_set_token_in_body.return_value = PRODUCT
         res = self.ws.get_alerts(report=True, token="PROD_TOKEN")
 
-        self.assertIsInstance(res, dict)
+        self.assertIsInstance(res, bytes)
 
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_alerts_by_type(self, mock_call_api):
+    def test_get_alerts_by_type(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = {'alerts': dict()}
-        from_date = datetime.now()
-        to_date = datetime.now()
+        mock_set_token_in_body.return_value = self.ws.token_type
+        from_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        to_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         res = self.ws.get_alerts(alert_type='SECURITY_VULNERABILITY', from_date=from_date, to_date=to_date)
 
         self.assertIsInstance(res, dict)
 
-    def test_get_alerts_by_false_type(self):
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    def test_get_alerts_by_false_type(self, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = self.ws.token_type
         res = self.ws.get_alerts(alert_type='FALSE')
 
         self.assertIs(res, None)
 
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_alerts_all(self, mock_call_api):
-        mock_call_api.return_value = {'alerts': dict()}
+    def test_get_alerts_all(self, mock_call_api, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = self.ws.token_type
+        mock_call_api.return_value = {'alerts': list()}
         res = self.ws.get_alerts()
 
-        self.assertIsInstance(res, dict)
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__call_api__')
+    def test_get_alerts_ignored(self, mock_call_api, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = self.ws.token_type
+        mock_call_api.return_value = {'alerts': list()}
+        res = self.ws.get_alerts(ignored=True)
+
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__call_api__')
+    def test_get_alerts_by_project_tag(self, mock_call_api, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = self.ws.token_type
+        mock_call_api.return_value = {'alerts': list()}
+        res = self.ws.get_alerts(project_tag=True, tag={"key": "value"})
+
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    def test_get_alerts_by_project_tag_product_token(self, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = PRODUCT
+        res = self.ws.get_alerts(project_tag=True, tag={"key": "value"}, token=PRODUCT)
+
+        self.assertIs(res, None)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    def test_get_alerts_by_project_tag_product_token(self, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = self.ws.token_type
+        res = self.ws.get_alerts(project_tag=True)
+
+        self.assertIs(res, None)
 
     @patch('ws_sdk.web.WS.__call_api__')
     def test_get_all_products(self, mock_call_api):
@@ -97,23 +147,23 @@ class TestWS(TestCase):
         self.assertIsInstance(res, list)
 
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_all_projects_project_token(self, mock_call_api):
+    def test_get_all_projects_as_project(self, mock_call_api):
         mock_call_api.return_value = {'projects': dict()}
-        self.ws.token_type = 'project'
+        self.ws.token_type = PROJECT
         res = self.ws.get_all_projects()
 
         self.assertIs(res, None)
 
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_all_projects_project_token(self, mock_call_api):
+    def test_get_all_projects_as_product(self, mock_call_api):
         mock_call_api.return_value = {'projects': list()}
-        self.ws.token_type = 'product'
+        self.ws.token_type = PRODUCT
         res = self.ws.get_all_projects()
 
         self.assertIsInstance(res, list)
 
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_all_projects_project_token(self, mock_call_api):
+    def test_get_all_projects_as_org_project_token(self, mock_call_api):
         mock_call_api.return_value = {'projects': list()}
         res = self.ws.get_all_projects(token="PROD_TOKEN")
 
@@ -134,62 +184,123 @@ class TestWS(TestCase):
         self.assertIsInstance(res, str)
 
     def test_get_organization_details_not_org(self):
-        self.ws.token_type = 'product'
+        self.ws.token_type = PRODUCT
         res = self.ws.get_organization_details()
 
         self.assertIs(res, None)
 
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_inventory_report(self, mock_call_api):
+    def test_get_inventory_report(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = bytes()
+        mock_set_token_in_body.return_value = self.ws.token_type
         res = self.ws.get_inventory(report=True)
 
         self.assertIsInstance(res, bytes)
 
-    @patch('ws_sdk.web.WS.get_scope_type_by_token')
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_inventory__product_report(self, mock_call_api, mock_get_scope_type_by_token):
+    def test_get_inventory__product_report(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = bytes()
-        mock_get_scope_type_by_token.return_value = 'product'
+        mock_set_token_in_body.return_value = PRODUCT
         res = self.ws.get_inventory(report=True, token="PRODUCT")
 
         self.assertIsInstance(res, bytes)
 
-    @patch('ws_sdk.web.WS.get_scope_type_by_token')
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_inventory_project(self, mock_call_api, mock_get_scope_type_by_token):
+    def test_get_inventory_project(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = {'libraries': list()}
-        mock_get_scope_type_by_token.return_value = 'project'
+        mock_set_token_in_body.return_value = PROJECT
         res = self.ws.get_inventory(token="PROJECT")
 
         self.assertIsInstance(res, list)
 
-    def test_get_inventory(self):
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    def test_get_inventory(self, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = self.ws.token_type
         res = self.ws.get_inventory()
 
         self.assertIs(res, None)
 
     @patch('ws_sdk.web.WS.get_all_scopes')
-    def test_get_scope_by_name(self, mock_get_all_scopes):
+    def test_get_scope_from_name(self, mock_get_all_scopes):
         mock_get_all_scopes.return_value = [{'name': "NAME", 'token': "TOKEN"}]
-        res = self.ws.get_scope_by_name("NAME")
+        res = self.ws.get_scope_from_name("NAME")
 
         self.assertIsInstance(res, dict)
 
     @patch('ws_sdk.web.WS.get_all_scopes')
-    def test_get_scope_by_name_not_found(self, mock_get_all_scopes):
+    def test_get_scope_from_name_not_found(self, mock_get_all_scopes):
         mock_get_all_scopes.return_value = list()
-        res = self.ws.get_scope_by_name("NAME")
+        res = self.ws.get_scope_from_name("NAME")
 
         self.assertIs(res, None)
 
-    @patch('ws_sdk.web.WS.get_scope_by_name')
-    def test_get_scope_token_by_name(self, mock_get_scope_by_name):
-        mock_get_scope_by_name.return_value = {'name': "NAME", 'token': "TOKEN"}
-        res = self.ws.get_scope_token_by_name('NAME')
+    @patch('ws_sdk.web.WS.get_scope_from_name')
+    def test_get_token_from_name(self, mock_get_scope_from_name):
+        mock_get_scope_from_name.return_value = {'name': "NAME", 'token': "TOKEN"}
+        res = self.ws.get_token_from_name('NAME')
 
         self.assertIsInstance(res, str)
+
+    @patch('ws_sdk.web.WS.get_scope_from_name')
+    def test_get_token_from_name_not_found(self, mock_get_scope_from_name):
+        mock_get_scope_from_name.return_value = None
+        res = self.ws.get_token_from_name('NAME_NOT_FOUND')
+
+        self.assertIs(res, None)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__call_api__')
+    def test_get_vulnerability_report(self, mock_call_api, mock_set_token_in_body):
+        mock_call_api.return_value = {'vulnerabilities': list()}
+        mock_set_token_in_body.return_value = self.ws.token_type
+
+        res = self.ws.get_vulnerability_report()
+
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__call_api__')
+    def test_get_vulnerability_report_xlsx_of_product(self, mock_call_api, mock_set_token_in_body):
+        mock_call_api.return_value = bytes()
+        mock_set_token_in_body.return_value = PRODUCT
+        res = self.ws.get_vulnerability_report(token="PRODUCT", report=True)
+
+        self.assertIsInstance(res, bytes)
+
+    @patch('ws_sdk.web.WS.get_vulnerability_report')
+    def test_get_vulnerabilities_per_lib(self, mock_get_vulnerability_report):
+        mock_get_vulnerability_report.return_value = list()
+        res = self.ws.get_vulnerabilities_per_lib()
+
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__call_api__')
+    def test_get_assignments(self, mock_call_api, mock_set_token_in_body):
+        mock_call_api.return_value = dict()
+        mock_set_token_in_body.return_value = self.ws.token_type
+        res = self.ws.get_assignments()
+
+        self.assertIsInstance(res, dict)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    def test_get_assignments_project(self, mock_set_token_in_body):
+        mock_set_token_in_body.return_value = PROJECT
+        res = self.ws.get_assignments()
+
+        self.assertIs(res, None)
+
+    @patch('ws_sdk.web.WS.__call_api__')
+    def test_get_change_log_report(self, mock_call_api):
+        mock_call_api.return_value = {'changes': list()}
+        res = self.ws.get_change_log_report()
+
+        self.assertIsInstance(res, list)
 
 
 if __name__ == '__main__':
     unittest.main()
+
