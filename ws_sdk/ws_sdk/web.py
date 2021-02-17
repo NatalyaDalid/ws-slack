@@ -1,6 +1,6 @@
 import json
 import logging
-import constants
+from ws_sdk import constants
 from datetime import datetime
 from secrets import compare_digest
 
