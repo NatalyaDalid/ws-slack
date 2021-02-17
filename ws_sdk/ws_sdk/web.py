@@ -307,11 +307,11 @@ class WS:
 
     def get_change_log_report(self,
                               start_date: datetime = None) -> list:
-
         if start_date is None:
             kv_dict = None
         else:
             kv_dict = {'startDateTime': start_date.strftime("%Y-%m-%d %H:%M:%S")}
+        logging.debug("Running change history")
 
         return self.__call_api__("getChangesReport", kv_dict)['changes']
 
@@ -320,6 +320,7 @@ class WS:
                      exclude_project_occurrences: bool = False) -> list:
         kv_dict = {'excludeProjectOccurrences': exclude_project_occurrences}
         token_type = self.__set_token_in_body__(kv_dict, token)
+        logging.debug(f"Running {token_type} licenses")
 
         return self.__generic_get__(get_type='Licenses', token_type=token_type, kv_dict=kv_dict)['libraries']
 
@@ -327,6 +328,7 @@ class WS:
                                token: str = None):
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
+        logging.debug(f"Running {token_type} In House libraries")
 
         return self.__generic_get__(get_type='InHouseLibraries', token_type=token_type, kv_dict=kv_dict)['libraries']
 
@@ -337,11 +339,12 @@ class WS:
         if token_type == constants.PROJECT:
             logging.error("get assignment is unsupported on project")
         else:
+            logging.debug(f"Running {token_type} Assignment")
             return self.__generic_get__(get_type='Assignments', token_type=token_type, kv_dict=kv_dict)
 
     def get_license_histogram(self,
                               token: str = None):
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
-
+        logging.debug("Running License Histogram")
         return self.__generic_get__(get_type='LicenseHistogram', token_type=token_type, kv_dict=kv_dict)['licenseHistogram']
