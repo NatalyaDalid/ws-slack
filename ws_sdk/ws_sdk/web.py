@@ -1,5 +1,7 @@
 import json
 import logging
+from typing import Union
+
 from ws_sdk import constants
 from datetime import datetime
 from secrets import compare_digest
@@ -113,7 +115,7 @@ class WS:
                    project_tag: bool = False,
                    tag: dict = {},
                    ignored: bool = False,
-                   report: bool = False) -> [list, bytes]:
+                   report: bool = False) -> Union[list, bytes]:
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
 
@@ -253,7 +255,7 @@ class WS:
                                  container: bool = False,
                                  cluster: bool = False,
                                  report: bool = False,
-                                 token: str = None) -> [list, bytes]:
+                                 token: str = None) -> Union[list, bytes]:
         kv_dict = {}
         if not report:
             kv_dict["format"] = "json"
