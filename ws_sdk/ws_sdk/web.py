@@ -28,7 +28,7 @@ class WS:
                  timeout: int = 30,
                  resp_format: str = "json"
                  ):
-        """API for WhiteSource
+        """SDK for WhiteSource
         :api_url: URL for the API to access (e.g. saas.whitesourcesoftware.com)
         :user_key: User Key to use
         :token: Token of scope
@@ -102,8 +102,15 @@ class WS:
     def __generic_get__(self,
                         get_type: str,
                         token_type: str,
-                        kv_dict: dict = None) -> [list, dict]:
-
+                        kv_dict: dict = None) -> [list, dict, bytes]:
+        """
+        This function completer the API type and calls.
+        :param get_type:
+        :param token_type:
+        :param kv_dict:
+        :return: can be list, dict, none or bytes (pdf, xlsx...)
+        :rtype: list or dict or bytes
+        """
         return self.__call_api__(f"get{token_type.capitalize()}{get_type}", kv_dict)
 
     # Covers O/P/P + byType + report
@@ -115,7 +122,21 @@ class WS:
                    project_tag: bool = False,
                    tag: dict = {},
                    ignored: bool = False,
+                   resolved: bool = False,
                    report: bool = False) -> Union[list, bytes]:
+        """
+        :param token: The token that the request will be created on
+        :param alert_type: Allows filtering alerts by a single type from ALERT_TYPES
+        :param from_date: Allows filtering of alerts by start date. Works together with to_date
+        :param to_date: Allows filtering of alerts by end date. Works together with from_date
+        :param project_tag: should filter by project tags
+        :param tag: dict of Key:Value of the tag. Allowed only 1 pair
+        :param ignored: Should output include ignored reports
+        :param resolved: Should output include resolved reports
+        :param report: Create xlsx report type
+        :return: list with alerts or xlsx if report is True
+        :rtype: list or bytes
+        """
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
 
@@ -131,7 +152,18 @@ class WS:
             kv_dict["toDate"] = to_date.strftime(DATE_FORMAT)
 
         ret = None
-        if report:
+        if resolved and report:
+            logging.debug("Running Resolved Alerts Report")
+            ret = self.__call_api__(f"get{token_type.capitalize()}ResolvedAlertsReport", kv_dict)
+        elif ignored and report:
+            logging.debug("Running ignored Alerts Report")
+            ret = self.__call_api__(f"get{token_type.capitalize()}IgnoredAlertsReport", kv_dict)
+        elif resolved:
+            logging.error("Resolved Alerts is only in xlsx format")
+        elif ignored:
+            logging.debug("Running ignored Alerts")
+            ret = self.__call_api__(f"get{token_type.capitalize()}IgnoredAlerts", kv_dict)
+        elif report:
             logging.debug("Running Alerts Report")
             kv_dict["format"] = "xlsx"
             ret = self.__call_api__(f"get{token_type.capitalize()}AlertsReport", kv_dict)
@@ -143,9 +175,6 @@ class WS:
                 ret = self.__call_api__("getAlertsByProjectTag", kv_dict)
             else:
                 logging.error("Alerts tag is not set correctly")
-        elif ignored:
-            logging.debug("Running ignored Alerts")
-            ret = self.__call_api__(f"get{token_type.capitalize()}IgnoredAlerts", kv_dict)
         elif kv_dict.get('alertType') is not None:
             logging.debug("Running Alerts By Type")
             ret = self.__call_api__(f"get{token_type.capitalize()}AlertsByType", kv_dict)
@@ -159,20 +188,28 @@ class WS:
                       token: str = None,
                       include_in_house_data: bool = True,
                       report: bool = False) -> [list, bytes]:
+        """
+        :param token: The token that the request will be created on
+        :param include_in_house_data:
+        :param report:
+        :return: list or xlsx if report is True
+        :rtype: list or bytes
+        """
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
-
+        ret = None
         if report:
             logging.debug("Running Inventory Report")
             kv_dict["format"] = "xlsx"
-
-            return self.__call_api__(f"get{token_type.capitalize()}InventoryReport", kv_dict)
+            ret = self.__call_api__(f"get{token_type.capitalize()}InventoryReport", kv_dict)
         elif token_type == 'project':
             logging.debug(f"Running {token_type} Inventory")
             kv_dict["includeInHouseData"] = include_in_house_data
-            return self.__call_api__(f"get{token_type.capitalize()}Inventory", kv_dict)['libraries']
+            ret = self.__call_api__(f"get{token_type.capitalize()}Inventory", kv_dict)
         else:
             logging.error(f"get inventory is unsupported on {token_type}")
+
+        return ret['libraries'] if isinstance(ret, dict) else ret
 
     def get_scope_type_by_token(self,
                                 token: str) -> str:
@@ -256,25 +293,33 @@ class WS:
                                  cluster: bool = False,
                                  report: bool = False,
                                  token: str = None) -> Union[list, bytes]:
+        """
+        :param status: str Alert status: "Active", "Ignored", "Resolved"
+        :param container:
+        :param cluster:
+        :param report:
+        :param token: The token that the request will be created on
+        :return: list or xlsx if report is True
+        :rtype: list or bytes
+        """
         kv_dict = {}
         if not report:
             kv_dict["format"] = "json"
-
         token_type = self.__set_token_in_body__(kv_dict, token)
-
         if status is not None:
             kv_dict['status'] = status
-
         # ret = None
         if container:       # TODO: Check if this is a bug. Does not work my org neither with orgToken nor productToken
             ret = self.__call_api__(f"get{token_type.capitalize()}ContainerVulnerabilityReport", kv_dict)
             # if token_type == 'product':
+            #     logging.debug("Running container Vulnerability Report")
             #     ret = self.__call_api__(f"get{token_type.capitalize()}ContainerVulnerabilityReport", kv_dict)
             # else:
             #     logging.error(f"get organization container vulnerability report is unsupported on {token_type}")
         elif cluster:       # TODO: Check if this is a bug. Does not work my org neither with orgToken nor productToken
             ret = self.__call_api__(f"getClusterVulnerabilityReport", kv_dict)
         else:
+            logging.debug(f"Running {token_type.capitalize()} Vulnerability Report")
             ret = self.__call_api__(f"get{token_type.capitalize()}VulnerabilityReport", kv_dict)
 
         return ret['vulnerabilities'] if isinstance(ret, dict) else ret
@@ -309,30 +354,61 @@ class WS:
 
     def get_change_log_report(self,
                               start_date: datetime = None) -> list:
+        report_name = 'Change Log Report'
         if start_date is None:
             kv_dict = None
         else:
             kv_dict = {'startDateTime': start_date.strftime("%Y-%m-%d %H:%M:%S")}
-        logging.debug("Running change history")
+        logging.debug(f"Running {report_name}")
 
         return self.__call_api__("getChangesReport", kv_dict)['changes']
 
     def get_licenses(self,
                      token: str = None,
                      exclude_project_occurrences: bool = False) -> list:
+        report_name = 'licenses Report'
         kv_dict = {'excludeProjectOccurrences': exclude_project_occurrences}
         token_type = self.__set_token_in_body__(kv_dict, token)
-        logging.debug(f"Running {token_type} licenses")
+        logging.debug(f"Running {token_type} {report_name}")
 
         return self.__generic_get__(get_type='Licenses', token_type=token_type, kv_dict=kv_dict)['libraries']
 
-    def get_in_house_libraries(self,
-                               token: str = None):
+    def get_source_files(self,
+                         token: str = None,
+                         report: bool = False) -> Union[list, bytes]:
+        report_name = 'Source File Inventory Report'
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
-        logging.debug(f"Running {token_type} In House libraries")
+        if report:
+            kv_dict["format"] = "xlsx"
+            logging.debug(f"Running {token_type} {report_name}")
+        else:
+            kv_dict["format"] = "json"
+            logging.debug(f"Running {token_type} Inventory")
+        ret = self.__generic_get__(get_type='SourceFileInventoryReport', token_type=token_type, kv_dict=kv_dict)
 
-        return self.__generic_get__(get_type='InHouseLibraries', token_type=token_type, kv_dict=kv_dict)['libraries']
+        return ret['sourceFiles'] if isinstance(ret, dict) else ret
+
+    def get_in_house_libraries(self,
+                               report: bool = False,
+                               token: str = None) -> Union[list, bytes]:
+        """
+        :param report: get output as xlsx if True
+        :param token: The token that the request will be created on
+        :return: list or bytes(xlsx)
+        :rtype: list or bytes
+        """
+        report_name = 'In-House Libraries'
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if report:
+            logging.debug(f"Running {token_type} {report_name} Report")
+            ret = self.__generic_get__(get_type='InHouseReport', token_type=token_type, kv_dict=kv_dict)
+        else:
+            logging.debug(f"Running {token_type} {report_name}")
+            ret = self.__generic_get__(get_type='InHouseLibraries', token_type=token_type, kv_dict=kv_dict)['libraries']
+
+        return ret['sourceFiles'] if isinstance(ret, dict) else ret
 
     def get_assignments(self,
                         token: str = None):
@@ -344,9 +420,152 @@ class WS:
             logging.debug(f"Running {token_type} Assignment")
             return self.__generic_get__(get_type='Assignments', token_type=token_type, kv_dict=kv_dict)
 
-    def get_license_histogram(self,
-                              token: str = None):
+    def get_risk_report(self,
+                        token: str = None) -> bytes:
+        """API for WhiteSource
+        :token: Token of scope
+        :token_type: Scope Type (organization, product, project)
+        :return bytes (pdf)
+        :rtype: bytes
+        """
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
-        logging.debug("Running License Histogram")
+        if token_type == constants.PROJECT:
+            logging.error("get risk is unsupported on project")
+        else:
+            logging.debug(f"Running {token_type} RiskReport")
+            return self.__generic_get__(get_type='RiskReport', token_type=token_type, kv_dict=kv_dict)
+
+    def get_library_location_report(self,
+                                    token: str = None) -> bytes:
+        report_name = 'Library Location Report'
+        """
+        :param token: The token that the request will be created on
+        :return: bytes (xlsx)
+        :rtype bytes
+        """
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if token_type == constants.PROJECT:
+            logging.error(f"{report_name} is unsupported on project level")
+        else:
+            logging.debug(f"Running {report_name} on {token_type}")
+            return self.__generic_get__(get_type='LibraryLocationReport', token_type=token_type, kv_dict=kv_dict)
+
+    def get_license_compatibility_report(self,
+                                         token: str = None) -> bytes:
+        report_name = 'License Compatibility Report'
+        """
+        :param token: The token that the request will be created on
+        :return: bytes (xlsx)
+        :rtype bytes
+        """
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if token_type == constants.ORGANIZATION:
+            logging.error(f"{report_name} is unsupported on organization level")
+        else:
+            logging.debug(f"Running {report_name} on {token_type}")
+            return self.__generic_get__(get_type='LicenseCompatibilityReport', token_type=token_type, kv_dict=kv_dict)
+
+    def get_due_diligence(self,
+                          token: str = None,
+                          report: bool = False) -> Union[list, bytes]:
+        report_name = 'Due Diligence Report'
+        """
+        :param token: The token that the request will be created on str
+        :param token: The token that the request will be created on bool - Should 
+        :return: list or bytes (xlsx)
+        :rtype list or bytes
+        """
+        kv_dict = {}
+        if not report:
+            kv_dict["format"] = "json"
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        logging.debug(f"Running {report_name} on {token_type}")
+        ret = self.__generic_get__(get_type='DueDiligenceReport', token_type=token_type, kv_dict=kv_dict)
+
+        return ret['licenses'] if isinstance(ret, dict) else ret
+
+    def get_attributes_report(self,
+                              token: str = None) -> bytes:
+        """
+        :param token: The token that the request will be created on
+        :return: bytes (xlsx)
+        :rtype bytes
+        """
+        report_name = 'Attributes Report'
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if token_type == constants.PROJECT:
+            logging.error(f"{report_name} is unsupported on project")
+        else:
+            logging.debug(f"Running {token_type} {report_name}")
+            return self.__generic_get__(get_type='AttributesReport', token_type=token_type, kv_dict=kv_dict)
+
+    def get_effective_licenses_report(self,
+                                      token: str = None) -> bytes:
+        """
+        :param token: The token that the request will be created on
+        :return: bytes (xlsx)
+        :rtype bytes
+        """
+        report_name = 'Effective Licenses Report'
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if token_type == constants.PROJECT:
+            logging.error(f"{report_name} is unsupported on project")
+        else:
+            logging.debug(f"Running {token_type} {report_name}")
+            return self.__generic_get__(get_type='EffectiveLicensesReport', token_type=token_type, kv_dict=kv_dict)
+
+    def get_bugs_report(self,
+                        token: str = None) -> bytes:
+        """
+        :param token: The token that the request will be created on
+        :return: bytes (xlsx)
+        :rtype bytes
+        """
+        report_name = 'Bugs Report'
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        logging.debug(f"Running {token_type} {report_name}")
+
+        return self.__generic_get__(get_type='BugsReport', token_type=token_type, kv_dict=kv_dict)
+
+    def get_request_history_report(self,
+                                   plugin: bool = False,
+                                   token: str = None) -> bytes:
+        """
+        :param plugin: bool
+        :param token: The token that the request will be created on str
+        :return: bytes (xlsx)
+        :rtype bytes
+        """
+        report_name = 'Request History Report'
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        ret = None
+        if plugin and token_type == constants.ORGANIZATION:
+            ret = self.__generic_get__(get_type='PluginRequestHistoryReport', token_type=token_type, kv_dict=kv_dict)
+        elif plugin:
+            logging.error(f"Plugin {report_name} unsupported for {token_type}")
+        else:
+            logging.debug(f"Running {token_type} {report_name}")
+            ret = self.__generic_get__(get_type='RequestHistoryReport', token_type=token_type, kv_dict=kv_dict)
+
+        return ret
+
+    def get_license_histogram(self,
+                              token: str = None) -> list:
+        """
+        :param token: The token that the request will be created on
+        :return: list
+        :rtype list
+        """
+        report_name = 'License Histogram'
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        logging.debug(f"Running {report_name}")
+
         return self.__generic_get__(get_type='LicenseHistogram', token_type=token_type, kv_dict=kv_dict)['licenseHistogram']
