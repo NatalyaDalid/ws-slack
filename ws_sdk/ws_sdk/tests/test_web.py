@@ -289,21 +289,21 @@ class TestWS(TestCase):
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_vulnerability_report(self, mock_call_api, mock_set_token_in_body):
+    def test_get_vulnerability(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = {'vulnerabilities': list()}
         mock_set_token_in_body.return_value = self.ws.token_type
 
-        res = self.ws.get_vulnerability_report()
+        res = self.ws.get_vulnerability()
 
         self.assertIsInstance(res, list)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_vulnerability_cluster_report(self, mock_call_api, mock_set_token_in_body):
+    def test_get_vulnerability_cluster(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = {'vulnerabilities': list()}
         mock_set_token_in_body.return_value = self.ws.token_type
 
-        res = self.ws.get_vulnerability_report(cluster=True)
+        res = self.ws.get_vulnerability(cluster=True)
 
         self.assertIsInstance(res, list)
 
@@ -312,28 +312,28 @@ class TestWS(TestCase):
     def test_get_vulnerability_report_xlsx_of_product(self, mock_call_api, mock_set_token_in_body):
         mock_call_api.return_value = bytes()
         mock_set_token_in_body.return_value = constants.PRODUCT
-        res = self.ws.get_vulnerability_report(token="PRODUCT", report=True)
+        res = self.ws.get_vulnerability(token="PRODUCT", report=True)
 
         self.assertIsInstance(res, bytes)
 
-    @patch('ws_sdk.web.WS.get_vulnerability_report')
-    def test_get_vulnerabilities_per_lib(self, mock_get_vulnerability_report):
-        mock_get_vulnerability_report.return_value = list()
+    @patch('ws_sdk.web.WS.get_vulnerability')
+    def test_get_vulnerabilities_per_lib(self, mock_get_vulnerability):
+        mock_get_vulnerability.return_value = list()
         res = self.ws.get_vulnerabilities_per_lib()
 
         self.assertIsInstance(res, list)
 
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_change_log_report(self, mock_call_api):
+    def test_get_change_log(self, mock_call_api):
         mock_call_api.return_value = {'changes': list()}
-        res = self.ws.get_change_log_report()
+        res = self.ws.get_change_log()
 
         self.assertIsInstance(res, list)
 
     @patch('ws_sdk.web.WS.__call_api__')
-    def test_get_change_log_report_start_date(self, mock_call_api):
+    def test_get_change_log_start_date(self, mock_call_api):
         mock_call_api.return_value = {'changes': list()}
-        res = self.ws.get_change_log_report(start_date=datetime.now())
+        res = self.ws.get_change_log(start_date=datetime.now())
 
         self.assertIsInstance(res, list)
 
@@ -355,16 +355,16 @@ class TestWS(TestCase):
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
-    def test_get_risk_report(self, mock_generic_get, mock_set_token_in_body):
+    def test_get_risk(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_risk_report()
+        res = self.ws.get_risk()
         self.assertIsInstance(res, bytes)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
-    def test_get_risk_report_project(self, mock_set_token_in_body):
+    def test_get_risk_project(self, mock_set_token_in_body):
         mock_set_token_in_body.return_value = constants.PROJECT
-        res = self.ws.get_risk_report()
+        res = self.ws.get_risk()
 
         self.assertIs(res, None)
 
@@ -378,18 +378,18 @@ class TestWS(TestCase):
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
-    def test_get_attributes_report(self, mock_generic_get, mock_set_token_in_body):
+    def test_get_attributes(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_attributes_report()
+        res = self.ws.get_attributes()
         self.assertIsInstance(res, bytes)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
-    def test_get_attributes__project_report(self, mock_generic_get, mock_set_token_in_body):
+    def test_get_attributes__project(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = constants.PROJECT
-        res = self.ws.get_attributes_report()
+        res = self.ws.get_attributes()
 
         self.assertIs(res, None)
 
@@ -440,35 +440,35 @@ class TestWS(TestCase):
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
-    def test_get_library_location_report(self, mock_generic_get, mock_set_token_in_body):
+    def test_get_library_location(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_library_location_report()
+        res = self.ws.get_library_location()
 
         self.assertIsInstance(res, bytes)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
-    def test_get_library_location_report_project(self, mock_set_token_in_body):
+    def test_get_library_location_project(self, mock_set_token_in_body):
         mock_set_token_in_body.return_value = constants.PROJECT
-        res = self.ws.get_library_location_report()
+        res = self.ws.get_library_location()
 
         self.assertIs(res, None)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
-    def test_get_license_compatibility_report_prod(self, mock_generic_get, mock_set_token_in_body):
+    def test_get_license_compatibility_prod(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = constants.PRODUCT
-        res = self.ws.get_license_compatibility_report()
+        res = self.ws.get_license_compatibility()
 
         self.assertIsInstance(res, bytes)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
-    def test_get_license_compatibility_report_org(self, mock_generic_get, mock_set_token_in_body):
+    def test_get_license_compatibility_org(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_license_compatibility_report()
+        res = self.ws.get_license_compatibility()
 
         self.assertIs(res, None)
 
@@ -483,17 +483,17 @@ class TestWS(TestCase):
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
-    def test_get_effective_licenses_report(self, mock_generic_get, mock_set_token_in_body):
+    def test_get_effective_licenses(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_effective_licenses_report()
+        res = self.ws.get_effective_licenses()
 
         self.assertIsInstance(res, bytes)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
-    def test_get_effective_licenses_report_project(self, mock_set_token_in_body):
+    def test_get_effective_licenses_project(self, mock_set_token_in_body):
         mock_set_token_in_body.return_value = constants.PROJECT
-        res = self.ws.get_effective_licenses_report()
+        res = self.ws.get_effective_licenses()
 
         self.assertIs(res, None)
 
@@ -502,7 +502,7 @@ class TestWS(TestCase):
     def test_get_bugs(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_bugs_report()
+        res = self.ws.get_bugs()
 
         self.assertIsInstance(res, bytes)
 
@@ -511,7 +511,7 @@ class TestWS(TestCase):
     def test_get_request_history(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_request_history_report()
+        res = self.ws.get_request_history()
 
         self.assertIsInstance(res, bytes)
 
@@ -520,7 +520,7 @@ class TestWS(TestCase):
     def test_get_request_history_plugin(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = self.ws.token_type
-        res = self.ws.get_request_history_report(plugin=True)
+        res = self.ws.get_request_history(plugin=True)
 
         self.assertIsInstance(res, bytes)
 
@@ -529,7 +529,7 @@ class TestWS(TestCase):
     def test_get_request_history_plugin_project(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = constants.PROJECT
-        res = self.ws.get_request_history_report(plugin=True)
+        res = self.ws.get_request_history(plugin=True)
 
         self.assertIs(res, None)
 

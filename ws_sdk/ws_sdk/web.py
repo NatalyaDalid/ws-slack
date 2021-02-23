@@ -1,10 +1,10 @@
 import json
 import logging
 from typing import Union
-
 from ws_sdk import constants
 from datetime import datetime
 from secrets import compare_digest
+from memoization import cached
 
 import requests
 
@@ -44,8 +44,9 @@ class WS:
         if token_type != 'organization':
             logging.error("Currently only supporting organization")
 
+    @cached(ttl=constants.CACHE_TIME)
     def __set_token_in_body__(self, kv_dict,
-                              token: str):
+                              token: str) -> str:
         if token is None:
             token_type = self.token_type
         else:
@@ -55,6 +56,7 @@ class WS:
 
         return token_type
 
+    @cached(ttl=constants.CACHE_TIME)
     def __create_body__(self,
                         api_call: str,
                         kv_dict: dict = None) -> dict:
@@ -69,6 +71,7 @@ class WS:
 
         return ret_dict
 
+    @cached(ttl=constants.CACHE_TIME)
     def __call_api__(self,
                      request_type: str,
                      kv_dict: dict = None) -> dict:
@@ -99,6 +102,7 @@ class WS:
 
         return ret
 
+    @cached(ttl=constants.CACHE_TIME)
     def __generic_get__(self,
                         get_type: str,
                         token_type: str,
@@ -287,12 +291,12 @@ class WS:
 
         return ret
 
-    def get_vulnerability_report(self,
-                                 status: str = None,        # "Active", "Ignored", "Resolved"
-                                 container: bool = False,
-                                 cluster: bool = False,
-                                 report: bool = False,
-                                 token: str = None) -> Union[list, bytes]:
+    def get_vulnerability(self,
+                          status: str = None,  # "Active", "Ignored", "Resolved"
+                          container: bool = False,
+                          cluster: bool = False,
+                          report: bool = False,
+                          token: str = None) -> Union[list, bytes]:
         """
         :param status: str Alert status: "Active", "Ignored", "Resolved"
         :param container:
@@ -332,7 +336,7 @@ class WS:
 
             return comp_severity if sev_dict[comp_severity] > sev_dict[severity] else severity
 
-        vuls = self.get_vulnerability_report(token=token)
+        vuls = self.get_vulnerability(token=token)
         logging.debug(f"Found {len(vuls)} Vulnerabilities")
         libs_vul = {}
         for vul in vuls:
@@ -352,8 +356,8 @@ class WS:
 
         return list(libs_vul.values())
 
-    def get_change_log_report(self,
-                              start_date: datetime = None) -> list:
+    def get_change_log(self,
+                       start_date: datetime = None) -> list:
         report_name = 'Change Log Report'
         if start_date is None:
             kv_dict = None
@@ -420,8 +424,8 @@ class WS:
             logging.debug(f"Running {token_type} Assignment")
             return self.__generic_get__(get_type='Assignments', token_type=token_type, kv_dict=kv_dict)
 
-    def get_risk_report(self,
-                        token: str = None) -> bytes:
+    def get_risk(self,
+                 token: str = None) -> bytes:
         """API for WhiteSource
         :token: Token of scope
         :token_type: Scope Type (organization, product, project)
@@ -436,8 +440,8 @@ class WS:
             logging.debug(f"Running {token_type} RiskReport")
             return self.__generic_get__(get_type='RiskReport', token_type=token_type, kv_dict=kv_dict)
 
-    def get_library_location_report(self,
-                                    token: str = None) -> bytes:
+    def get_library_location(self,
+                             token: str = None) -> bytes:
         report_name = 'Library Location Report'
         """
         :param token: The token that the request will be created on
@@ -452,8 +456,8 @@ class WS:
             logging.debug(f"Running {report_name} on {token_type}")
             return self.__generic_get__(get_type='LibraryLocationReport', token_type=token_type, kv_dict=kv_dict)
 
-    def get_license_compatibility_report(self,
-                                         token: str = None) -> bytes:
+    def get_license_compatibility(self,
+                                  token: str = None) -> bytes:
         report_name = 'License Compatibility Report'
         """
         :param token: The token that the request will be created on
@@ -487,8 +491,8 @@ class WS:
 
         return ret['licenses'] if isinstance(ret, dict) else ret
 
-    def get_attributes_report(self,
-                              token: str = None) -> bytes:
+    def get_attributes(self,
+                       token: str = None) -> bytes:
         """
         :param token: The token that the request will be created on
         :return: bytes (xlsx)
@@ -503,8 +507,8 @@ class WS:
             logging.debug(f"Running {token_type} {report_name}")
             return self.__generic_get__(get_type='AttributesReport', token_type=token_type, kv_dict=kv_dict)
 
-    def get_effective_licenses_report(self,
-                                      token: str = None) -> bytes:
+    def get_effective_licenses(self,
+                               token: str = None) -> bytes:
         """
         :param token: The token that the request will be created on
         :return: bytes (xlsx)
@@ -519,8 +523,8 @@ class WS:
             logging.debug(f"Running {token_type} {report_name}")
             return self.__generic_get__(get_type='EffectiveLicensesReport', token_type=token_type, kv_dict=kv_dict)
 
-    def get_bugs_report(self,
-                        token: str = None) -> bytes:
+    def get_bugs(self,
+                 token: str = None) -> bytes:
         """
         :param token: The token that the request will be created on
         :return: bytes (xlsx)
@@ -533,9 +537,9 @@ class WS:
 
         return self.__generic_get__(get_type='BugsReport', token_type=token_type, kv_dict=kv_dict)
 
-    def get_request_history_report(self,
-                                   plugin: bool = False,
-                                   token: str = None) -> bytes:
+    def get_request_history(self,
+                            plugin: bool = False,
+                            token: str = None) -> bytes:
         """
         :param plugin: bool
         :param token: The token that the request will be created on str
