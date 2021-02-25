@@ -105,7 +105,7 @@ class WS:
     @cached(ttl=constants.CACHE_TIME)
     def __generic_get__(self,
                         get_type: str,
-                        token_type: str,
+                        token_type: str = None,
                         kv_dict: dict = None) -> [list, dict, bytes]:
         """
         This function completer the API type and calls.
@@ -115,6 +115,9 @@ class WS:
         :return: can be list, dict, none or bytes (pdf, xlsx...)
         :rtype: list or dict or bytes
         """
+        if token_type is None:
+            token_type = self.token_type
+
         return self.__call_api__(f"get{token_type.capitalize()}{get_type}", kv_dict)
 
     # Covers O/P/P + byType + report
@@ -237,21 +240,24 @@ class WS:
         logging.debug(f"Token {token} was not found")
 
     def get_all_scopes(self) -> list:
-        all_tokens = list()
         if self.token_type == "organization":
-            projects = self.get_vitals("project")
-            for project in projects:
-                project['type'] = "project"
-            products = self.get_vitals("product")
-            for product in products:
+            all_products = self.__generic_get__(get_type="ProductVitals")['productVitals']
+            all_projects = []
+            for product in all_products:
                 product['type'] = "product"
-            all_tokens = products + projects
+                try:
+                    projects = self.__generic_get__(get_type="ProjectVitals", kv_dict={'productToken': product['token']}, token_type='product')['projectVitals']
+                    for project in projects:
+                        project['type'] = "project"
+                        project['productToken'] = product['token']
+                        project['productName'] = product['name']
+                        all_projects.append(project)
+                except KeyError:
+                    logging.debug(f"Product: {product['name']} Token {product['token']} without project. Skipping")
+        else:
+            logging.error(f"get all scopes is unsupported on {self.token_type}")
 
-        return all_tokens
-
-    def get_vitals(self,
-                   of_type: str) -> list:
-        return self.__call_api__(f"get{self.token_type.capitalize()}{of_type.capitalize()}Vitals")[f"{of_type}Vitals"]
+        return all_products + all_projects
 
     def get_organization_details(self) -> dict:
         return self.__call_api__("getOrganizationDetails") if (self.token_type == 'organization') \
@@ -274,22 +280,31 @@ class WS:
         return None if scope is None else scope['token']
 
     def get_all_products(self) -> list:
-        return self.__call_api__("getAllProducts")['products'] if self.token_type == 'organization' \
-            else logging.error("get_all_products only allowed on organization")
-
-    def get_all_projects(self,
-                         token=None) -> list:
         ret = None
-        if self.token_type == 'project':
-            logging.error("get_all_projects only allowed on organizations or products")
-        elif self.token_type == 'product':
-            ret = self.__call_api__("getAllProjects")['projects']
-        elif token is not None:
-            ret = self.__call_api__("getAllProjects", kv_dict={self.TOKEN_TYPES['product']: token})['projects']
-        else:
-            ret = list(filter(lambda tok: (tok['type'] == 'project'), self.get_all_scopes()))
+        ret = self.__generic_get__(get_type='ProductVitals')['productVitals'] if self.token_type == constants.ORGANIZATION \
+            else logging.error("get all products only allowed on organization")
 
         return ret
+
+    def get_all_projects(self,
+                         product_token=None) -> list:
+        """
+        :param product_token: if stated retrieves projects of specific product. If left blank retrieves all the projects in the org
+        :return: list
+        :rtype list
+        """
+        all_scopes = self.get_all_scopes()
+        all_projects = []
+
+        for scope in all_scopes:
+            if scope.get('productToken') == product_token and scope['type'] == constants.PROJECT:
+                all_projects.append(scope)
+            elif product_token:
+                continue
+            elif scope['type'] == constants.PROJECT:
+                all_projects.append(scope)
+
+        return all_projects
 
     def get_vulnerability(self,
                           status: str = None,  # "Active", "Ignored", "Resolved"
@@ -573,3 +588,28 @@ class WS:
         logging.debug(f"Running {report_name}")
 
         return self.__generic_get__(get_type='LicenseHistogram', token_type=token_type, kv_dict=kv_dict)['licenseHistogram']
+
+    def get_product_of_project(self,
+                               token: str):
+        all_scopes = self.get_all_scopes()
+        for scope in all_scopes:
+            if scope['type'] == constants.PROJECT and scope['token'] == token:
+                return scope
+
+    def get_project(self,
+                    token: str):
+        all_projects = self.get_all_projects()
+        for project in all_projects:
+            if project['token'] == token:
+                return project
+
+    def delete(self,
+               token: str):
+        kv_dict = {}
+        token_type = self.__set_token_in_body__(kv_dict, token)
+        if token_type == constants.PROJECT:
+            project = self.get_project(token)
+            kv_dict['productToken'] = project['productToken']
+
+        logging.info(f"Deleting {token_type}: {self.get_scope_name_by_token(token)} Token: {token}")
+        # self.__call_api__(f"delete{token_type.capitalize()}", kv_dict)  # TODO eventually uncomment.

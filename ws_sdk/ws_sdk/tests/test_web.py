@@ -201,7 +201,7 @@ class TestWS(TestCase):
     @patch('ws_sdk.web.WS.__call_api__')
     def test_get_all_projects_as_org_project_token(self, mock_call_api):
         mock_call_api.return_value = {'projects': list()}
-        res = self.ws.get_all_projects(token="PROD_TOKEN")
+        res = self.ws.get_all_projects(product_token="PROD_TOKEN")
 
         self.assertIsInstance(res, list)
 
