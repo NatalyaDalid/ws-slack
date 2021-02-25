@@ -51,8 +51,11 @@ class WS:
             token_type = self.token_type
         else:
             token_type = self.get_scope_type_by_token(token)
-            kv_dict[self.TOKEN_TYPES[token_type]] = token
-            logging.debug(f"Token: {token} is a {token_type}")
+            if token_type:
+                kv_dict[self.TOKEN_TYPES[token_type]] = token
+                logging.debug(f"Token: {token} is a {token_type}")
+            else:
+                logging.error(f"Token {token} does not exist")
 
         return token_type
 
@@ -205,16 +208,18 @@ class WS:
         kv_dict = {}
         token_type = self.__set_token_in_body__(kv_dict, token)
         ret = None
-        if report:
-            logging.debug("Running Inventory Report")
-            kv_dict["format"] = "xlsx"
-            ret = self.__call_api__(f"get{token_type.capitalize()}InventoryReport", kv_dict)
-        elif token_type == 'project':
+        if token_type == 'project' and report is False:
             logging.debug(f"Running {token_type} Inventory")
             kv_dict["includeInHouseData"] = include_in_house_data
-            ret = self.__call_api__(f"get{token_type.capitalize()}Inventory", kv_dict)
-        else:
+            #ret = self.__call_api__(f"get{token_type.capitalize()}Inventory", kv_dict)
+            ret = self.__generic_get__('Inventory', token_type=token_type, kv_dict=kv_dict)
+        elif token_type != 'project' and report is False:
             logging.error(f"get inventory is unsupported on {token_type}")
+        elif report:
+            logging.debug("Running Inventory Report")
+            kv_dict["format"] = "xlsx"
+            #ret = self.__call_api__(f"get{token_type.capitalize()}InventoryReport", kv_dict)
+            ret = self.__generic_get__(get_type="InventoryReport", token_type=token_type, kv_dict=kv_dict)
 
         return ret['libraries'] if isinstance(ret, dict) else ret
 
@@ -440,7 +445,8 @@ class WS:
             return self.__generic_get__(get_type='Assignments', token_type=token_type, kv_dict=kv_dict)
 
     def get_risk(self,
-                 token: str = None) -> bytes:
+                 token: str = None,
+                 report: bool = True) -> bytes:
         """API for WhiteSource
         :token: Token of scope
         :token_type: Scope Type (organization, product, project)
