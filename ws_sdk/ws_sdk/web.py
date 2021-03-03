@@ -216,14 +216,12 @@ class WS:
         if token_type == 'project' and report is False:
             logging.debug(f"Running {token_type} Inventory")
             kv_dict["includeInHouseData"] = include_in_house_data
-            #ret = self.__call_api__(f"get{token_type.capitalize()}Inventory", kv_dict)
             ret = self.__generic_get__('Inventory', token_type=token_type, kv_dict=kv_dict)
         elif token_type != 'project' and report is False:
             logging.error(f"get inventory is unsupported on {token_type}")
         elif report:
             logging.debug("Running Inventory Report")
             kv_dict["format"] = "xlsx"
-            #ret = self.__call_api__(f"get{token_type.capitalize()}InventoryReport", kv_dict)
             ret = self.__generic_get__(get_type="InventoryReport", token_type=token_type, kv_dict=kv_dict)
 
         return ret['libraries'] if isinstance(ret, dict) else ret
@@ -567,6 +565,7 @@ class WS:
         :rtype bytes
         """
         report_name = 'Bugs Report'
+        ret = None
         if report:
             token_type, kv_dict = self.__set_token_in_body__(token)
             logging.debug(f"Running {token_type} {report_name}")
@@ -620,22 +619,23 @@ class WS:
                                token: str):
         all_scopes = self.get_all_scopes()
         for scope in all_scopes:
-            if scope['type'] == constants.PROJECT and scope['token'] == token:
+            if scope['type'] == constants.PROJECT and compare_digest(scope['token'], token):
                 return scope
 
     def get_project(self,
                     token: str):
         all_projects = self.get_all_projects()
         for project in all_projects:
-            if project['token'] == token:
+            if compare_digest(project['token'], token):
                 return project
+        logging.error(f"Project with token: {token} was not found")
 
     def delete(self,
-               token: str):
+               token: str) -> dict:
         token_type, kv_dict = self.__set_token_in_body__(token)
         if token_type == constants.PROJECT:
             project = self.get_project(token)
             kv_dict['productToken'] = project['productToken']
 
         logging.info(f"Deleting {token_type}: {self.get_scope_name_by_token(token)} Token: {token}")
-        # self.__call_api__(f"delete{token_type.capitalize()}", kv_dict)  # TODO eventually uncomment.
+        return self.__call_api__(f"delete{token_type.capitalize()}", kv_dict)  # TODO eventually uncomment.
