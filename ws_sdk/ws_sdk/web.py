@@ -623,7 +623,7 @@ class WS:
                 return scope
 
     def get_project(self,
-                    token: str):
+                    token: str) -> dict:
         all_projects = self.get_all_projects()
         for project in all_projects:
             if compare_digest(project['token'], token):
@@ -632,6 +632,11 @@ class WS:
 
     def delete(self,
                token: str) -> dict:
+        """
+        :param token: token of entity to delete (product or project)
+        :return: dict whether succeeded.
+        :rtype dict
+        """
         token_type, kv_dict = self.__set_token_in_body__(token)
         if token_type == constants.PROJECT:
             project = self.get_project(token)

@@ -4,7 +4,7 @@ import unittest
 from datetime import datetime
 from unittest import TestCase
 
-from mock import patch
+from mock import patch, Mock
 
 import ws_sdk.constants as constants
 from ws_sdk.web import WS
@@ -52,6 +52,16 @@ class TestWS(TestCase):
         res = self.ws.__call_api__("api_call")
 
         self.assertIsInstance(res, dict)
+
+    @patch('ws_sdk.web.requests.post')
+    @patch('ws_sdk.web.WS.__create_body__')
+    def test___call_api___exception(self, mock_create_body, mock_post):
+        mock_create_body.return_value = {'Token': "TOKEN"}
+        mock_post.return_value.side_effect = TimeoutError
+        # res = self.ws.__call_api__("api_call")
+
+        with self.assertRaises(TimeoutError):
+            self.ws.__call_api__("api_call")
 
     @patch('ws_sdk.web.WS.__call_api__')
     def test___generic_get__(self, mock_call_api):
