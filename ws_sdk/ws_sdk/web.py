@@ -84,7 +84,7 @@ class WS:
         try:
             resp = requests.post(self.api_url, data=json.dumps(body), headers=HEADERS, timeout=self.timeout)
         except Exception as e:
-            logging.error(f"Received Error on {body[token[0]]} {e}")
+            logging.exception(f"Received Error on {body[token[0]]}")
             raise
 
         if resp.status_code > 299:

@@ -1,10 +1,11 @@
+import json
 import logging
 import sys
 import unittest
 from datetime import datetime
 from unittest import TestCase
 
-from mock import patch, Mock
+from mock import patch
 
 import ws_sdk.constants as constants
 from ws_sdk.web import WS
@@ -53,12 +54,22 @@ class TestWS(TestCase):
 
         self.assertIsInstance(res, dict)
 
+    @patch('ws_sdk.web.json.loads')
+    @patch('ws_sdk.web.requests.post')
+    def test___call_api__json_exception(self, mock_post, mock_json_loads):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.content = bytes()
+        mock_json_loads.side_effect = json.JSONDecodeError(doc="DOC", pos=1, msg="Error")
+
+        res = self.ws.__call_api__("api_call")
+
+        self.assertIsInstance(res, bytes)
+
     @patch('ws_sdk.web.requests.post')
     @patch('ws_sdk.web.WS.__create_body__')
-    def test___call_api___exception(self, mock_create_body, mock_post):
+    def test___call_api___timeout_exception(self, mock_create_body, mock_post):
         mock_create_body.return_value = {'Token': "TOKEN"}
-        mock_post.return_value.side_effect = TimeoutError
-        # res = self.ws.__call_api__("api_call")
+        mock_post.side_effect = TimeoutError()
 
         with self.assertRaises(TimeoutError):
             self.ws.__call_api__("api_call")
