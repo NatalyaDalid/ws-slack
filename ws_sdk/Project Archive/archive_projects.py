@@ -38,6 +38,7 @@ def get_reports_to_archive():
     logging.info(f"Keeping {days_to_keep.days} days. Archiving projects older than {archive_date}")
 
     projects = []
+    project_report_desc_list = []
     for prod in products:
         all_projects = c_org.get_all_projects(prod['token'])
         logging.info(f"Handling product: {prod['name']} number of projects: {len(all_projects)}")
@@ -49,7 +50,6 @@ def get_reports_to_archive():
                 projects.append(project)
         logging.info(f"Found {len(projects)} projects to archive on product: {prod['name']}")
 
-        project_report_desc_list = []
         for project in projects:
             if not os.path.exists(project['project_archive_dir']):
                 os.makedirs(project['project_archive_dir'])
@@ -140,9 +140,10 @@ def parse_config(config_file):
 
 if __name__ == '__main__':
     start_time = datetime.now()
-    conf_file = f'{os.path.dirname(__file__)}/params.config'
     if len(sys.argv) == 2:
-        conf_file = sys.argv[1]
+        conf_file = f'{os.path.dirname(__file__)}/{sys.argv[1]}'
+    else:
+        conf_file = f'{os.path.dirname(__file__)}/params.config'
     parse_config(conf_file)
 
     c_org = WS(api_url=config['DEFAULT']['WsApiUrl'], user_key=config['DEFAULT']['UserKey'], token=config['DEFAULT']['OrgToken'])
