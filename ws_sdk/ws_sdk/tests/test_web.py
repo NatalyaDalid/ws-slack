@@ -56,14 +56,25 @@ class TestWS(TestCase):
 
     @patch('ws_sdk.web.json.loads')
     @patch('ws_sdk.web.requests.post')
-    def test___call_api__json_exception(self, mock_post, mock_json_loads):
+    def test___call_api__bytes(self, mock_post, mock_json_loads):
         mock_post.return_value.status_code = 200
         mock_post.return_value.content = bytes()
+        mock_post.return_value.text = "TEXT"
         mock_json_loads.side_effect = json.JSONDecodeError(doc="DOC", pos=1, msg="Error")
-
         res = self.ws.__call_api__("api_call")
 
         self.assertIsInstance(res, bytes)
+
+    @patch('ws_sdk.web.json.loads')
+    @patch('ws_sdk.web.requests.post')
+    def test___call_api__text(self, mock_post, mock_json_loads):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.content = "TEXT".encode('ascii')
+        mock_post.return_value.text = "TEXT"
+        mock_json_loads.side_effect = json.JSONDecodeError(doc="DOC", pos=1, msg="Error")
+        res = self.ws.__call_api__("api_call")
+
+        self.assertIsInstance(res, str)
 
     @patch('ws_sdk.web.requests.post')
     @patch('ws_sdk.web.WS.__create_body__')
@@ -445,12 +456,27 @@ class TestWS(TestCase):
 
         self.assertIsInstance(res, list)
 
+    @patch('ws_sdk.web.WS.get_source_files')
+    def test_get_source_file_inventory(self, mock_get_source_files):
+        mock_get_source_files.return_value = bytes()
+        res = self.ws.get_source_file_inventory()
+
+        self.assertIsInstance(res, bytes)
+
+
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
     def test_get_source_files_report(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = bytes()
         mock_set_token_in_body.return_value = (self.ws.token_type, {})
         res = self.ws.get_source_files(report=True)
+
+        self.assertIsInstance(res, bytes)
+
+    @patch('ws_sdk.web.WS.get_in_house_libraries')
+    def test_get_in_house(self, mock_get_in_house_libraries):
+        mock_get_in_house_libraries.return_value = bytes()
+        res = self.ws.get_in_house()
 
         self.assertIsInstance(res, bytes)
 

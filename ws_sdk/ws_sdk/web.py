@@ -98,7 +98,12 @@ class WS:
             ret = json.loads(resp.text)
         except json.JSONDecodeError:
             logging.debug("Not a JSON object")
-            ret = resp.content
+            if bytes(resp.text, 'ascii') == resp.content:
+                logging.debug("Response is a text file")
+                ret = resp.text
+            else:
+                logging.debug("Return bytes")
+                ret = resp.content
 
         return ret
 
@@ -539,6 +544,46 @@ class WS:
         else:
             logging.debug(f"Running {token_type} {report_name}")
             return self.__generic_get__(get_type='AttributesReport', token_type=token_type, kv_dict=kv_dict)
+
+    def get_attribution(self,
+                        reporting_aggregation_mode: str,
+                        token: str,
+                        report_header: str = "Attribution Report",
+                        report_title: str = None,
+                        report_footer: str = None,
+                        reporting_scope: str = None,
+                        missing_license_display_option: str = "BLANK",
+                        export_format: str = "JSON",
+                        license_reference_text_placement: str = "LICENSE_SECTION",
+                        custom_attribute: str = None,
+                        include_versions: str = True) -> Union[dict, bytes]:
+        report_name = 'Attribution Report'
+        token_type, kv_dict = self.__set_token_in_body__(token)
+        if token_type == constants.ORGANIZATION:
+            logging.error(f"{report_name} is unsupported on organization")
+        elif reporting_aggregation_mode not in ['BY_COMPONENT', 'BY_PROJECT']:
+            logging.error(f"{report_name} incorrect reporting_aggregation_mode value. Supported: BY_COMPONENT or BY_PROJECT")
+        elif missing_license_display_option not in ['BLANK', 'GENERIC_LICENSE']:
+            logging.error(f"{report_name} missing_license_display_option value. Supported: BLANK or GENERIC_LICENSE")
+        elif export_format not in ['TXT', 'HTML', 'JSON']:
+            logging.error(f"{report_name} incorrect export_format value. Supported: TXT, HTML or JSON")
+        elif reporting_scope not in [None, 'SUMMARY', 'LICENSES', 'COPYRIGHTS', 'NOTICES', 'PRIMARY_ATTRIBUTES']:
+            logging.error(f"{report_name} incorrect reporting scope value. Supported: SUMMARY, LICENSES, COPYRIGHTS, NOTICES or PRIMARY_ATTRIBUTES")
+        elif license_reference_text_placement not in ['LICENSE_SECTION' ,'APPENDIX_SECTION']:
+            logging.error(f"{report_name} incorrect license_reference_text_placement value. Supported:  LICENSE_SECTION or APPENDIX_SECTION  ")
+        else:
+            kv_dict['reportHeader'] = report_header
+            kv_dict['reportTitle'] = report_title
+            kv_dict['reportFooter'] = report_footer
+            kv_dict['reportingScope'] = reporting_scope
+            kv_dict['reportingAggregationMode'] = reporting_aggregation_mode
+            kv_dict['missingLicenseDisplayOption'] = missing_license_display_option
+            kv_dict['exportFormat'] = export_format
+            kv_dict['licenseReferenceTextPlacement'] = license_reference_text_placement
+            kv_dict['customAttribute'] = custom_attribute
+            kv_dict['includeVersions'] = include_versions
+            logging.debug(f"Running {token_type} {report_name}")
+            return self.__generic_get__(get_type='AttributionReport', token_type=token_type, kv_dict=kv_dict)
 
     def get_effective_licenses(self,
                                token: str = None) -> bytes:
