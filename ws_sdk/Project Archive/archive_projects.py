@@ -144,6 +144,7 @@ if __name__ == '__main__':
         conf_file = f'{os.path.dirname(__file__)}/{sys.argv[1]}'
     else:
         conf_file = f'{os.path.dirname(__file__)}/params.config'
+    logging.info(f"Using configuration file: {conf_file}")
     parse_config(conf_file)
 
     c_org = WS(api_url=config['DEFAULT']['WsApiUrl'], user_key=config['DEFAULT']['UserKey'], token=config['DEFAULT']['OrgToken'])
