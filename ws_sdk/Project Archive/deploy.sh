@@ -26,5 +26,4 @@ dos2unix -q ./*
 echo "Installing as user package: dist/ws_sdk-0.0.1-py3-none-any.whl"
 $PIP install --user dist/ws_sdk-0.0.1-py3-none-any.whl
 
-echo "To execute:" {PYTHON} "archive_projects params.config"
-
+echo "To execute:" "${PYTHON}" "archive_projects params.config"

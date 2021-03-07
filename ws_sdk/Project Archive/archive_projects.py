@@ -140,10 +140,10 @@ def parse_config(config_file):
 
 if __name__ == '__main__':
     start_time = datetime.now()
-    if len(sys.argv) == 2:
-        conf_file = f'{os.path.dirname(__file__)}/{sys.argv[1]}'
+    if len(sys.argv) > 1:
+        conf_file = sys.argv[-1]
     else:
-        conf_file = f'{os.path.dirname(__file__)}/params.config'
+        conf_file = 'params.config'
     logging.info(f"Using configuration file: {conf_file}")
     parse_config(conf_file)
 
