@@ -8,9 +8,9 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name="ws_sdk",
-    version="0.0.1",
-    author="WS PS",
-    author_email="oz.tamari@whitesourcesoftware.com",
+    version="0.1.0",
+    author="WhiteSource Professional Services",
+    author_email="ps@whitesourcesoftware.com",
     description="WS Python SDK",
     url='https://github.com/whitesource-ps/ws_sdk',
     license='LICENSE.txt',

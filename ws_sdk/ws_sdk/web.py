@@ -46,7 +46,7 @@ class WS:
 
     @cached(ttl=constants.CACHE_TIME)
     def __set_token_in_body__(self,
-                              token: str) -> (str, dict):
+                              token: str = None) -> (str, dict):
         kv_dict = {}
         if token is None:
             token_type = self.token_type
@@ -83,27 +83,28 @@ class WS:
         token = [s for s in body.keys() if 'Token' in s]
         try:
             resp = requests.post(self.api_url, data=json.dumps(body), headers=HEADERS, timeout=self.timeout)
-        except Exception as e:
-            logging.exception(f"Received Error on {body[token[0]]}")
+        except requests.RequestException:
+            logging.exception(f"Received Error on {body[token[-1]]}")
             raise
 
         if resp.status_code > 299:
-            logging.error("API %s call on %s failed" % (body['requestType'], body[token[0]]))
-        elif "errorCode" in resp.text:
-            logging.error(f"Error while retrieving API:{request_type} Error: {resp.text}")
+            logging.error(f"API {body['requestType']} call on {body[token[-1]]} failed")
+        # elif "errorCode" in resp.text:
+        #     logging.error(f"Error while retrieving API:{request_type} Error: {resp.text}")
+        #     raise requests.exceptions.InvalidURL
         else:
-            logging.debug("API %s call on %s succeeded" % (body['requestType'], body[token[0]]))
+            logging.debug(f"API {body['requestType']} call on {token[-1]} {body[token[-1]]} succeeded")
 
         try:
             ret = json.loads(resp.text)
         except json.JSONDecodeError:
-            logging.debug("Not a JSON object")
-            if bytes(resp.text, 'ascii') == resp.content:
-                logging.debug("Response is a text file")
-                ret = resp.text
-            else:
-                logging.debug("Return bytes")
+            logging.debug("Response is not a JSON object")
+            if resp.encoding is None:
+                logging.debug("Response is binary")
                 ret = resp.content
+            else:
+                logging.debug(f"Response encoding: {resp.encoding}")
+                ret = resp.text
 
         return ret
 
@@ -170,7 +171,7 @@ class WS:
             logging.debug("Running ignored Alerts Report")
             ret = self.__generic_get__(get_type='IgnoredAlertsReport', token_type=token_type, kv_dict=kv_dict)
         elif resolved:
-            logging.error("Resolved Alerts is only in xlsx format")
+            logging.error("Resolved Alerts is only available in xlsx format(set report=True)")
         elif ignored:
             logging.debug("Running ignored Alerts")
             ret = self.__generic_get__(get_type='IgnoredAlerts', token_type=token_type, kv_dict=kv_dict)
@@ -279,18 +280,28 @@ class WS:
     def get_organization_name(self) -> str:
         return self.get_organization_details()['orgName']
 
-    def get_scope_from_name(self, scope_name):
+    def get_scopes_from_name(self, scope_name) -> list:
+        """
+        :param scope_name:
+        :return:
+        """
         scopes = self.get_all_scopes()
+        ret = []
         for scope in scopes:
             if scope_name == scope['name']:
-                return scope
-        logging.error(f"{scope_name} was not found")
+                ret.append(scope)
+        logging.debug(f"Found {len(ret)} scopes with name {scope_name}") if ret else logging.error(f"Scope with a name: {scope_name} was not found")
 
-    def get_token_from_name(self,
-                            name: str) -> str:
-        scope = self.get_scope_from_name(name)
+        return ret
 
-        return None if scope is None else scope['token']
+    def get_tokens_from_name(self,
+                             scope_name: str) -> list:
+        scopes = self.get_scopes_from_name(scope_name)
+        ret = []
+        for scope in scopes:
+            ret.append(scope['token'])
+
+        return ret
 
     def get_all_products(self) -> list:
         ret = self.__generic_get__(get_type='ProductVitals')['productVitals'] if self.token_type == constants.ORGANIZATION \
@@ -324,6 +335,7 @@ class WS:
                           cluster: bool = False,
                           report: bool = False,
                           token: str = None) -> Union[list, bytes]:
+        report_name = "Vulnerability Report"
         """
         :param status: str Alert status: "Active", "Ignored", "Resolved"
         :param container:
@@ -339,17 +351,21 @@ class WS:
         if status is not None:
             kv_dict['status'] = status
         ret = None
-        if container and report:                                  # Container (org level) and Cluster (prod  level)
+
+        if container:
             if token_type == constants.ORGANIZATION:
-                logging.debug("Running container Vulnerability Report")
-                ret = self.__generic_get__(get_type='ContainerVulnerabilityReport', kv_dict=kv_dict)
-            elif token_type == constants.PRODUCT:
-                ret = self.__generic_get__(get_type='ClusterVulnerabilityReport', kv_dict=kv_dict) # TODO: FIX PASSING PRODUCT
+                logging.debug(f"Running Container {report_name}")
+                ret = self.__generic_get__(get_type='ContainerVulnerabilityReportRequest', token_type=token_type, kv_dict=kv_dict)  # TODO doesn't work
             else:
-                logging.error(f"Container vulnerability report is unsupported on {token_type}")
-        elif container:
-            logging.error(f"Container vulnerability report is only supported as report")
+                logging.error(f"Container {report_name} is unsupported on {token_type}")
+        elif cluster:
+            if token_type == constants.PRODUCT:
+                logging.debug(f"Running Cluster {report_name}")
+                ret = self.__generic_get__(get_type='ClusterVulnerabilityReportRequest', token_type="", kv_dict=kv_dict)
+            else:
+                logging.error(f"Cluster {report_name} is unsupported on {token_type}")
         else:
+            logging.debug(f"Running {report_name}")
             ret = self.__generic_get__(get_type='VulnerabilityReport', token_type=token_type, kv_dict=kv_dict)
 
         return ret['vulnerabilities'] if isinstance(ret, dict) else ret
@@ -389,7 +405,7 @@ class WS:
 
     def get_change_log(self,
                        start_date: datetime = None) -> list:
-        report_name = 'Change Log Report'
+        report_name = "Change Log Report"
         if start_date is None:
             kv_dict = None
         else:
@@ -471,17 +487,19 @@ class WS:
         :return bytes (pdf)
         :rtype: bytes
         """
+        report_name = "Risk Report"
         token_type, kv_dict = self.__set_token_in_body__(token)
-
-        if token_type == constants.PROJECT:
-            logging.error("get risk is unsupported on project")
+        if not report:
+            logging.error(f"Report {report_name} is supported in pdf format. (set report=True)")
+        elif token_type == constants.PROJECT:
+            logging.error(f"{report_name} is unsupported on project")
         else:
-            logging.debug(f"Running {token_type} RiskReport")
+            logging.debug(f"Running {report_name} on {token_type}")
             return self.__generic_get__(get_type='RiskReport', token_type=token_type, kv_dict=kv_dict)
 
     def get_library_location(self,
                              token: str = None) -> bytes:
-        report_name = 'Library Location Report'
+        report_name = "Library Location Report"
         """
         :param token: The token that the request will be created on
         :return: bytes (xlsx)
@@ -497,7 +515,7 @@ class WS:
     def get_license_compatibility(self,
                                   token: str = None,
                                   report: bool = False) -> bytes:
-        report_name = 'License Compatibility Report'
+        report_name = "License Compatibility Report"
         """
         :param token: The token that the request will be created on
         :return: bytes (xlsx)
@@ -505,7 +523,7 @@ class WS:
         """
         token_type, kv_dict = self.__set_token_in_body__(token)
         if not report:
-            logging.error(f"{report_name} is only supported as document")
+            logging.error(f"{report_name} is supported in xlsx format. (set report=True)")
         elif token_type == constants.ORGANIZATION:
             logging.error(f"{report_name} is unsupported on organization level")
         else:
@@ -515,7 +533,7 @@ class WS:
     def get_due_diligence(self,
                           token: str = None,
                           report: bool = False) -> Union[list, bytes]:
-        report_name = 'Due Diligence Report'
+        report_name = "Due Diligence Report"
         """
         :param token: The token that the request will be created on str
         :param token: The token that the request will be created on bool - Should 
@@ -537,7 +555,7 @@ class WS:
         :return: bytes (xlsx)
         :rtype bytes
         """
-        report_name = 'Attributes Report'
+        report_name = "Attributes Report"
         token_type, kv_dict = self.__set_token_in_body__(token)
         if token_type == constants.PROJECT:
             logging.error(f"{report_name} is unsupported on project")
@@ -557,7 +575,7 @@ class WS:
                         license_reference_text_placement: str = "LICENSE_SECTION",
                         custom_attribute: str = None,
                         include_versions: str = True) -> Union[dict, bytes]:
-        report_name = 'Attribution Report'
+        report_name = "Attribution Report"
         token_type, kv_dict = self.__set_token_in_body__(token)
         if token_type == constants.ORGANIZATION:
             logging.error(f"{report_name} is unsupported on organization")
@@ -569,7 +587,7 @@ class WS:
             logging.error(f"{report_name} incorrect export_format value. Supported: TXT, HTML or JSON")
         elif reporting_scope not in [None, 'SUMMARY', 'LICENSES', 'COPYRIGHTS', 'NOTICES', 'PRIMARY_ATTRIBUTES']:
             logging.error(f"{report_name} incorrect reporting scope value. Supported: SUMMARY, LICENSES, COPYRIGHTS, NOTICES or PRIMARY_ATTRIBUTES")
-        elif license_reference_text_placement not in ['LICENSE_SECTION' ,'APPENDIX_SECTION']:
+        elif license_reference_text_placement not in ['LICENSE_SECTION', 'APPENDIX_SECTION']:
             logging.error(f"{report_name} incorrect license_reference_text_placement value. Supported:  LICENSE_SECTION or APPENDIX_SECTION  ")
         else:
             kv_dict['reportHeader'] = report_header
@@ -583,6 +601,7 @@ class WS:
             kv_dict['customAttribute'] = custom_attribute
             kv_dict['includeVersions'] = include_versions
             logging.debug(f"Running {token_type} {report_name}")
+
             return self.__generic_get__(get_type='AttributionReport', token_type=token_type, kv_dict=kv_dict)
 
     def get_effective_licenses(self,
@@ -617,7 +636,7 @@ class WS:
 
             ret = self.__generic_get__(get_type='BugsReport', token_type=token_type, kv_dict=kv_dict)
         else:
-            logging.error(f"{report_name} is only supported as document")
+            logging.error(f"{report_name} is only supported as xls (set report=True")
 
         return ret
 

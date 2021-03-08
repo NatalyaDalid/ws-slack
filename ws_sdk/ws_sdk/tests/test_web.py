@@ -59,7 +59,7 @@ class TestWS(TestCase):
     def test___call_api__bytes(self, mock_post, mock_json_loads):
         mock_post.return_value.status_code = 200
         mock_post.return_value.content = bytes()
-        mock_post.return_value.text = "TEXT"
+        mock_post.return_value.encoding = None
         mock_json_loads.side_effect = json.JSONDecodeError(doc="DOC", pos=1, msg="Error")
         res = self.ws.__call_api__("api_call")
 
@@ -69,7 +69,7 @@ class TestWS(TestCase):
     @patch('ws_sdk.web.requests.post')
     def test___call_api__text(self, mock_post, mock_json_loads):
         mock_post.return_value.status_code = 200
-        mock_post.return_value.content = "TEXT".encode('ascii')
+        mock_post.return_value.encoding = 'UTF-8'
         mock_post.return_value.text = "TEXT"
         mock_json_loads.side_effect = json.JSONDecodeError(doc="DOC", pos=1, msg="Error")
         res = self.ws.__call_api__("api_call")
@@ -284,18 +284,18 @@ class TestWS(TestCase):
         self.assertIs(res, None)
 
     @patch('ws_sdk.web.WS.get_all_scopes')
-    def test_get_scope_from_name(self, mock_get_all_scopes):
+    def test_get_scopes_from_name(self, mock_get_all_scopes):
         mock_get_all_scopes.return_value = [{'name': "NAME", 'token': "TOKEN"}]
-        res = self.ws.get_scope_from_name("NAME")
+        res = self.ws.get_scopes_from_name("NAME")
 
-        self.assertIsInstance(res, dict)
+        self.assertIsInstance(res, list)
 
     @patch('ws_sdk.web.WS.get_all_scopes')
-    def test_get_scope_from_name_not_found(self, mock_get_all_scopes):
+    def test_get_scopes_from_name_not_found(self, mock_get_all_scopes):
         mock_get_all_scopes.return_value = []
-        res = self.ws.get_scope_from_name("NAME")
+        res = self.ws.get_scopes_from_name("NAME")
 
-        self.assertIs(res, None)
+        self.assertIsInstance(res, list)
 
     @patch('ws_sdk.web.WS.get_scope_by_token')
     def test_get_scope_type_by_token(self, mock_get_scope_by_token):
@@ -311,26 +311,26 @@ class TestWS(TestCase):
 
         self.assertEqual(res, "NAME")
 
-    @patch('ws_sdk.web.WS.get_scope_from_name')
-    def test_get_token_from_name(self, mock_get_scope_from_name):
-        mock_get_scope_from_name.return_value = {'name': "NAME", 'token': "TOKEN"}
-        res = self.ws.get_token_from_name('NAME')
+    @patch('ws_sdk.web.WS.get_scopes_from_name')
+    def test_get_tokens_from_name(self, mock_get_scopes_from_name):
+        mock_get_scopes_from_name.return_value = [{'name': "NAME", 'token': "TOKEN"}]
+        res = self.ws.get_tokens_from_name('NAME')
 
-        self.assertIsInstance(res, str)
+        self.assertIsInstance(res, list) and self.assertIsInstance(res[0], {'name': "NAME", 'token': "TOKEN"})
 
     @patch('ws_sdk.web.WS.get_all_scopes')
-    def test_get_scope_by_token(self, mock_get_all_scopes):
+    def test_get_scopes_by_token(self, mock_get_all_scopes):
         mock_get_all_scopes.return_value = [{'token': "TOKEN"}]
         res = self.ws.get_scope_by_token(token="TOKEN")
 
         self.assertIn('token', res) and self.assertEqual(res['token'], "TOKEN")
 
-    @patch('ws_sdk.web.WS.get_scope_from_name')
-    def test_get_token_from_name_not_found(self, mock_get_scope_from_name):
-        mock_get_scope_from_name.return_value = None
-        res = self.ws.get_token_from_name('NAME_NOT_FOUND')
+    @patch('ws_sdk.web.WS.get_scopes_from_name')
+    def test_get_token_from_name_not_found(self, mock_get_scopes_from_name):
+        mock_get_scopes_from_name.return_value = []
+        res = self.ws.get_tokens_from_name('NAME_NOT_FOUND')
 
-        self.assertIs(res, None)
+        self.assertIsInstance(res, list) and self.assertEqual(len(res), 0)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
@@ -346,11 +346,21 @@ class TestWS(TestCase):
     @patch('ws_sdk.web.WS.__generic_get__')
     def test_get_vulnerability_cluster(self, mock_generic_get, mock_set_token_in_body):
         mock_generic_get.return_value = {'vulnerabilities': []}
+        mock_set_token_in_body.return_value = (constants.PRODUCT, {})
+
+        res = self.ws.get_vulnerability(cluster=True, token=constants.PRODUCT)
+
+        self.assertIsInstance(res, list)
+
+    @patch('ws_sdk.web.WS.__set_token_in_body__')
+    @patch('ws_sdk.web.WS.__generic_get__')
+    def test_get_vulnerability_cluster_as_org(self, mock_generic_get, mock_set_token_in_body):
+        mock_generic_get.return_value = {'vulnerabilities': []}
         mock_set_token_in_body.return_value = (self.ws.token_type, {})
 
         res = self.ws.get_vulnerability(cluster=True)
 
-        self.assertIsInstance(res, list)
+        self.assertIs(res, None)
 
     @patch('ws_sdk.web.WS.__set_token_in_body__')
     @patch('ws_sdk.web.WS.__generic_get__')
