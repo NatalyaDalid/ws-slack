@@ -1,0 +1,4 @@
+{
+  "Reports": ["lib_vulnerabilities"],
+  "ChannelPrefix": "ws__"
+}

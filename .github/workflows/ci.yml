@@ -1,4 +1,4 @@
-name: WS Python SDK Python CI
+name: WS Slack integration [TBD]
 on: [push]
 
 jobs:
@@ -27,8 +27,8 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Unittesting
         run: |
-          cd ws_sdk
-          python -m unittest ws_sdk/tests/test_web.py
+          cd ws-slack
+          python -m unittest ws-slack/tests/test_app.py
       - name: Create Wheel Package
         run: |
           cd ws_sdk
