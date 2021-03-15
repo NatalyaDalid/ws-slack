@@ -21,3 +21,4 @@ target/
 # Excluded Files - Naming Convention
 local-env.*
 /ws-slack/Obsolete/
+/ws-slack/cust_config.json
