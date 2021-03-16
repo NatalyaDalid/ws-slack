@@ -1,14 +1,13 @@
 import json
 import logging
+import os
 
 from ws_sdk.web import WS
 
-f = open("cust_config.json", 'r')
-cust_config = json.loads(f.read())
 
-ws_cust_connector = WS(url=cust_config['ws_url'],
-                       user_key=cust_config['ws_user_key'],
-                       token=cust_config['ws_org_token'])
+ws_cust_connector = WS(url=os.environ.get('WS_URL'),
+                       user_key=os.environ.get('WS_USER_KEY'),
+                       token=os.environ.get('WS_ORG_TOKEN'))
 
 
 def is_email_exists(slack_email: str) -> bool:
