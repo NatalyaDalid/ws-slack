@@ -5,45 +5,41 @@ from ws_sdk.web import WS
 
 
 class Report:
-    MANDATORY_V = ['ws_user_key', 'ws_org_token', 'ws_scope_token']
-
     def __init__(self,
-                 pipeline_req,
-                 config):
+                 ws_conn_details: dict,
+                 config: dict,
+                 ws_connector: WS):
+        self.ws_conn_details = ws_conn_details
         self.config = config
-        self.pipeline_req = pipeline_req
-        self.ws_connector = WS(url=pipeline_req['ws_url'],
-                               user_key=pipeline_req['ws_user_key'],
-                               token=pipeline_req['ws_org_token'])
-        self.execute()
+        self.ws_connector = ws_connector
+        self.execute() if is_valid_config(self.ws_conn_details, self.mandatory_values) else KeyError
+
+
+def fix_slack_channel_name(channel_name):
+    return channel_name.lower()\
+        .replace(" ", "_")\
+        .replace(".", "_")
 
 
 class LibVulnerabilities(Report):
-    def execute(self):
-        if self.is_valid_request(self.pipeline_req):
-            libs = self.ws_connector.get_vulnerabilities_per_lib(token=self.pipeline_req['ws_scope_token'])
-            scope_type = self.ws_connector.get_scope_type_by_token(token=self.pipeline_req['ws_scope_token'])
-            scope_name = self.ws_connector.get_scope_name_by_token(token=self.pipeline_req['ws_scope_token'])
-            channel = self. get_channel_name(scope_type=scope_type, scope_token=self.pipeline_req['ws_scope_token'])
+    mandatory_values = ['ws_scope_token']
 
-            header_text = f"{scope_type} {scope_name} Library Vulnerability report"
-            block = self.create_lib_vul_block(header_text, libs)
-            slack_actions.send_to_slack(channel=channel, block=json.dumps(block))
-            logging.info("Sent lib vulnerabilities")
-            return "OK"
-        else:
-            raise KeyError("Missing parameters")
+    def execute(self):
+        libs = self.ws_connector.get_vulnerabilities_per_lib(token=self.ws_conn_details['ws_scope_token'])
+        scope_type = self.ws_connector.get_scope_type_by_token(token=self.ws_conn_details['ws_scope_token'])
+        scope_name = self.ws_connector.get_scope_name_by_token(token=self.ws_conn_details['ws_scope_token'])
+        channel = self. get_channel_name(scope_type=scope_type, scope_token=self.ws_conn_details['ws_scope_token'])
+
+        header_text = f"{scope_type} {scope_name} Library Vulnerability report"
+        block = self.create_lib_vul_block(header_text, libs)
+        slack_actions.send_to_slack(channel=channel, block=json.dumps(block))
+        logging.info("Sent lib vulnerabilities")
 
     # In slack Channel names can’t contain spaces, periods, or most punctuation
     def get_channel_name(self, scope_type, scope_token):
-        return f"{self.config['ChannelPrefix']}_{scope_type}_{self.ws_connector.get_scope_name_by_token(token=scope_token)}" \
-            .lower().replace(" ", "_").replace(".", "_")
+        channel_name = f"{self.config['ChannelPrefix']}{scope_type}_{self.ws_connector.get_scope_name_by_token(token=scope_token)}" \
 
-    def is_valid_request(self, conn_dict):        # TODO: Add syntax validation and perhaps connectivity test?
-        for key in self.MANDATORY_V + ['ws_scope_token']:
-            if conn_dict.get(key) is None:
-                return False
-        return True
+        return fix_slack_channel_name(channel_name)
 
     def create_lib_vul_block(self, header_text, libs) -> list:
         block = [self.create_header_block(header_text),
@@ -118,3 +114,18 @@ class LibVulnerabilities(Report):
             ret = ', '.join(ret) + " ..."
 
         return ret
+
+
+MANDATORY_WS_V = ['ws_user_key', 'ws_org_token', 'ws_url']
+
+
+def is_valid_config(matched_dict, mandatory_keys):    # TODO: Add syntax validation and perhaps connectivity test?
+    for key in mandatory_keys:
+        if matched_dict.get(key) is None:
+            logging.error(f"Missing {key}")
+            return False
+    return True
+
+
+def is_valid_ws_conn_details(conn_dict):    # TODO: Add syntax validation and perhaps connectivity test?
+    return is_valid_config(conn_dict, MANDATORY_WS_V)

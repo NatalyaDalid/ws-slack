@@ -35,7 +35,9 @@ def is_slack_channel_exists(channel_name) -> bool:
             channel_exist = True
             logging.debug(f"Channel {channel_name} found")
             break
-    logging.debug(f"Channel {channel_name} was not found")
+
+    if not channel_exist:
+        logging.debug(f"Channel {channel_name} was not found")
 
     return channel_exist
 
@@ -54,15 +56,6 @@ def send_to_slack(channel, block):
     if not is_slack_channel_exists(channel):
         create_channel(channel)
     try:
-        client.chat_postMessage(channel=channel, blocks=block)
-    except SlackApiError as e:
+        client.chat_postMessage(channel=channel, blocks=block, text=block)
+    except SlackApiError:
         logging.exception("Unable to post to Slack")
-
-
-def send_block(channel, block):
-    if not is_slack_channel_exists(channel):
-        create_channel(channel)
-    try:
-        client.chat_postMessage(channel=channel, blocks=block)
-    except SlackApiError as e:
-        logging.error(f"Got an error: {e.response['error']}")

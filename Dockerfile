@@ -3,7 +3,7 @@ FROM tiangolo/uvicorn-gunicorn-fastapi:python3.7
 EXPOSE 8000
 
 COPY ./ws-slack /app
-COPY ./ws_sdk/dist/*.whl .
+COPY ./ws-sdk/dist/*.whl .
 
 RUN pip3 install -r ./requirements.txt
 RUN pip3 install *.whl
