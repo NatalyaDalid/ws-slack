@@ -23,7 +23,7 @@ def get_slack_user_data(user_id: str):
 def get_slack_channels() -> list:
     try:
         return client.conversations_list().__dict__['data']['channels']
-    except SlackApiError as e:
+    except SlackApiError:
         logging.exception(f"Error fetching channels")
 
 
@@ -59,3 +59,10 @@ def send_to_slack(channel, block):
         client.chat_postMessage(channel=channel, blocks=block, text=block)
     except SlackApiError:
         logging.exception("Unable to post to Slack")
+
+
+# In slack Channel names can’t contain spaces, periods, or most punctuation
+def fix_slack_channel_name(channel_name):
+    return channel_name.lower() \
+        .replace(" ", "_") \
+        .replace(".", "_")
