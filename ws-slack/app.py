@@ -59,7 +59,7 @@ def parse_slash_syntax(message: dict) -> str:
         command_list = list(message['text'].split())
         if len(command_list) == 2 and command_list[0].lower() == 'tokens':        # Retrieving tokens from report name
             scopes = ws_cust_connector.get_scopes(name=command_list[1])
-            if len(scopes) is 0:
+            if len(scopes) == 0:
                 ret = f"No Product or Project with the name: '{command_list[1]}' was found. Note that search is case sensitive"
                 logging.debug(f"No scopes were found with name: {command_list[1]}")
             else:
