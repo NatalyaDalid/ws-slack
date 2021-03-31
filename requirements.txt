@@ -1,0 +1,6 @@
+uvicorn~=0.13.4
+fastapi~=0.63.0
+pydantic~=1.8.1
+slack_sdk~=3.4.2
+slack-bolt~=1.4.3
+ws-sdk~=0.1.0

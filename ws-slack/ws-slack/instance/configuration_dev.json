@@ -1,8 +1,0 @@
-{
-  "slackBotToken": "xoxb-1508568038180-1598251342835-KPgaUkYfXIQOHAJLBTw05Opy",
-  "slackSigningSecret":"eae9ced30f0739139f8340e96e146b68",
-  "wssApiUrl": "https://saas.whitesourcesoftware.com/api/v1.3",
-  "wssUserKey": "f30e540b46334b88942a24ac80d59693eb6a4ab52c354bc0a37a43ba284b603e",
-  "wssOrgToken": "6172a79058e5452fa7a5856f78cd82d7a74b20b8064840ef826aae807b43254e",
-  "channelPrefix": "wss__"
-}

@@ -1,0 +1,6 @@
+{
+  "Reports": ["lib_vulnerabilities", "TBD"],
+  "ChannelPrefix": "ws__",
+  "MandatoryEnvVars": ["SLACK_BOT_TOKEN", "SLACK_SIGNING_SECRET", "WS_URL", "WS_ORG_TOKEN", "WS_USER_KEY"],
+  "MandatoryWsConnProp": ["ws_user_key", "ws_org_token", "ws_url"]
+}
